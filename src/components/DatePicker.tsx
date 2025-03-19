@@ -7,12 +7,13 @@ import {
   startOfDay,
   startOfWeek,
   endOfDay,
+  parseISO,
 } from "date-fns";
 import { zonedTimeToUtc, utcToZonedTime } from "date-fns-tz";
 
 interface DatePickerProps {
-  selectedDates: Date[];
-  onChange: (dates: Date[]) => void;
+  selectedDates: string[]; // 使用ISO字符串數組而不是Date對象
+  onChange: (dates: string[]) => void; // 返回ISO字符串
   timezone: string;
 }
 
@@ -21,44 +22,51 @@ export function DatePicker({
   onChange,
   timezone,
 }: DatePickerProps) {
-  // Convert current time to the selected timezone
+  // 轉換當前時間到選擇的時區
   const nowInTimezone = utcToZonedTime(new Date(), timezone);
   const todayInTimezone = startOfDay(nowInTimezone);
   const endOfTodayInTimezone = endOfDay(todayInTimezone);
 
-  // Calculate 5 weeks worth of days, showing multiple months
+  // 計算5週的日曆天數
   const firstDayOfCalendar = startOfWeek(todayInTimezone);
-
-  // Generate calendar days for the first month (current month)
   const calendarDays = Array.from({ length: 35 }, (_, i) =>
     addDays(firstDayOfCalendar, i)
   );
 
+  // 切換日期選擇
   const toggleDate = (date: Date) => {
-    // Convert the selected date to UTC for storage
-    const dateInTimezone = utcToZonedTime(date, timezone);
+    // 確保日期是在用戶時區的午夜時間
+    const dateInTimezone = startOfDay(utcToZonedTime(date, timezone));
 
-    // Check if the date is in the past (including today if it's past end of day)
+    // 檢查日期是否在過去
     const isPast = dateInTimezone < endOfTodayInTimezone;
     if (isPast) return;
 
+    // 將時區日期轉換為UTC ISO字符串（僅保留日期部分）
     const dateInUTC = zonedTimeToUtc(dateInTimezone, timezone);
-    const isSelected = selectedDates.some((d) =>
-      isSameDay(utcToZonedTime(d, timezone), dateInTimezone)
-    );
+    const dateISOString = dateInUTC.toISOString().split("T")[0]; // 只保留 "YYYY-MM-DD" 部分
+
+    // 檢查日期是否已被選擇
+    const isSelected = selectedDates.some((isoStr) => {
+      const dateObj = parseISO(isoStr);
+      return isSameDay(utcToZonedTime(dateObj, timezone), dateInTimezone);
+    });
 
     if (isSelected) {
+      // 移除日期
       onChange(
-        selectedDates.filter(
-          (d) => !isSameDay(utcToZonedTime(d, timezone), dateInTimezone)
-        )
+        selectedDates.filter((isoStr) => {
+          const dateObj = parseISO(isoStr);
+          return !isSameDay(utcToZonedTime(dateObj, timezone), dateInTimezone);
+        })
       );
     } else {
-      onChange([...selectedDates, dateInUTC]);
+      // 添加日期
+      onChange([...selectedDates, dateISOString]);
     }
   };
 
-  // Group dates by month and year
+  // 按月份和年份分組日期
   const renderMonthCalendar = (dates: Date[]) => {
     const dateGroups = dates.reduce<Record<string, Date[]>>((acc, date) => {
       const key = format(date, "MMMM yyyy");
@@ -73,7 +81,7 @@ export function DatePicker({
       <div key={monthYear} className="space-y-2">
         <h3 className="text-lg font-semibold text-gray-800">{monthYear}</h3>
         <div className="grid grid-cols-7 gap-2">
-          {/* Weekday headers */}
+          {/* 星期幾標題 */}
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <div
               key={day}
@@ -83,13 +91,19 @@ export function DatePicker({
             </div>
           ))}
 
-          {/* Date buttons */}
+          {/* 日期按鈕 */}
           {monthDates.map((date) => {
             const dateInTimezone = utcToZonedTime(date, timezone);
             const isPast = dateInTimezone < endOfTodayInTimezone;
-            const isSelected = selectedDates.some((d) =>
-              isSameDay(utcToZonedTime(d, timezone), dateInTimezone)
-            );
+
+            // 檢查日期是否已被選擇
+            const isSelected = selectedDates.some((isoStr) => {
+              const dateObj = parseISO(isoStr);
+              return isSameDay(
+                utcToZonedTime(dateObj, timezone),
+                dateInTimezone
+              );
+            });
 
             return (
               <button
@@ -121,5 +135,12 @@ export function DatePicker({
     ));
   };
 
-  return <div className="space-y-6">{renderMonthCalendar(calendarDays)}</div>;
+  return (
+    <div className="space-y-6">
+      {renderMonthCalendar(calendarDays)}
+      <div className="text-xs text-gray-500">
+        All dates are shown in your timezone ({timezone})
+      </div>
+    </div>
+  );
 }

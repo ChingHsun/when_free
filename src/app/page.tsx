@@ -1,7 +1,8 @@
 // app/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, Clock, Users, ArrowRight } from "lucide-react";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
 import { Button } from "@/components/ui/button";
@@ -15,26 +16,26 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
+import { createMeeting } from "@/lib/meetingService";
 
 // Types
 export interface Meeting {
   title: string;
   description: string;
   organizerName: string;
-  organizerTimezone: string;
-  selectedDates: Date[];
+  selectedTimezone: string;
+  selectedDates: string[];
   availableTimeSlots: unknown[];
 }
 const TIMEZONE_STORAGE_KEY = "user-timezone";
 export default function Home() {
+  const router = useRouter();
   // Initialize with browser timezone
   const [meeting, setMeeting] = useState<Meeting>({
     title: "",
     description: "",
     organizerName: "",
-    organizerTimezone:
-      sessionStorage.getItem(TIMEZONE_STORAGE_KEY) ||
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    selectedTimezone: "",
     selectedDates: [],
     availableTimeSlots: [],
   });
@@ -54,25 +55,43 @@ export default function Home() {
 
   const timeOptions = generateTimeOptions();
 
-  const handleCreateMeeting = async () => {
+  const handleCreateMeeting = async (event) => {
     console.log("Creating meeting:", meeting);
 
-    // This would connect to your Firebase service in the actual implementation
-    // Example:
-    // const { id, shareCode } = await createMeeting(
-    //   meeting.title,
-    //   meeting.organizerName,
-    //   meeting.organizerTimezone,
-    //   meeting.selectedDates.map(d => d.toISOString()),
-    //   meeting.timeRangeStart,
-    //   meeting.timeRangeEnd,
-    //   30 // time step in minutes
-    // );
+    event.preventDefault();
+    try {
+      const { id, shareCode } = await createMeeting(
+        meeting.title,
+        meeting.description,
+        meeting.selectedDates
+      );
 
-    // For now, just log and simulate a successful creation
+      // 導航到下一頁
+      router.push(`/meetings/${id}`);
+    } catch (error) {
+      console.error("Error creating meeting:", error);
+    }
     alert("Meeting created! You would be redirected to share the link.");
   };
 
+  useEffect(() => {
+    // 現在安全地訪問 sessionStorage
+    const storedTimezone = sessionStorage.getItem(TIMEZONE_STORAGE_KEY);
+    if (storedTimezone) {
+      setMeeting((meeting) => ({
+        ...meeting,
+        selectedTimezone: storedTimezone,
+      }));
+    } else {
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setMeeting((meeting) => ({
+        ...meeting,
+        selectedTimezone: browserTimezone,
+      }));
+
+      sessionStorage.setItem("user-timezone", browserTimezone);
+    }
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -107,9 +126,9 @@ export default function Home() {
                     Your Timezone
                   </label>
                   <TimezoneSelect
-                    value={meeting.organizerTimezone}
+                    value={meeting.selectedTimezone}
                     onChange={(timezone) =>
-                      setMeeting({ ...meeting, organizerTimezone: timezone })
+                      setMeeting({ ...meeting, selectedTimezone: timezone })
                     }
                   />
                 </div>
@@ -167,9 +186,9 @@ export default function Home() {
             <DatePicker
               selectedDates={meeting.selectedDates}
               onChange={(dates) =>
-                setMeeting({ ...meeting, selectedDates: dates })
+                setMeeting((meeting) => ({ ...meeting, selectedDates: dates }))
               }
-              timezone={meeting.organizerTimezone}
+              timezone={meeting.selectedTimezone}
             />
           </CardContent>
           <CardFooter>
