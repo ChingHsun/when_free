@@ -1,103 +1,226 @@
-import Image from "next/image";
+// app/page.tsx
+"use client";
 
+import React, { useState } from "react";
+import { Calendar, Clock, Users, ArrowRight } from "lucide-react";
+import { TimezoneSelect } from "@/components/TimezoneSelect";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/DatePicker";
+
+// Types
+export interface Meeting {
+  title: string;
+  description: string;
+  organizerName: string;
+  organizerTimezone: string;
+  selectedDates: Date[];
+  availableTimeSlots: unknown[];
+}
+const TIMEZONE_STORAGE_KEY = "user-timezone";
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  // Initialize with browser timezone
+  const [meeting, setMeeting] = useState<Meeting>({
+    title: "",
+    description: "",
+    organizerName: "",
+    organizerTimezone:
+      sessionStorage.getItem(TIMEZONE_STORAGE_KEY) ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    selectedDates: [],
+    availableTimeSlots: [],
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  // Generate time options in 30-minute increments
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (const minute of [0, 30]) {
+        const hourStr = hour.toString().padStart(2, "0");
+        const minuteStr = minute.toString().padStart(2, "0");
+        options.push(`${hourStr}:${minuteStr}`);
+      }
+    }
+    return options;
+  };
+
+  const timeOptions = generateTimeOptions();
+
+  const handleCreateMeeting = async () => {
+    console.log("Creating meeting:", meeting);
+
+    // This would connect to your Firebase service in the actual implementation
+    // Example:
+    // const { id, shareCode } = await createMeeting(
+    //   meeting.title,
+    //   meeting.organizerName,
+    //   meeting.organizerTimezone,
+    //   meeting.selectedDates.map(d => d.toISOString()),
+    //   meeting.timeRangeStart,
+    //   meeting.timeRangeEnd,
+    //   30 // time step in minutes
+    // );
+
+    // For now, just log and simulate a successful creation
+    alert("Meeting created! You would be redirected to share the link.");
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Meeting Details */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-2xl">Meeting Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Organizer Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Your Information
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Name
+                  </label>
+                  <Input
+                    value={meeting.organizerName}
+                    onChange={(e) =>
+                      setMeeting({ ...meeting, organizerName: e.target.value })
+                    }
+                    placeholder="Enter your name"
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Timezone
+                  </label>
+                  <TimezoneSelect
+                    value={meeting.organizerTimezone}
+                    onChange={(timezone) =>
+                      setMeeting({ ...meeting, organizerTimezone: timezone })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Meeting Info */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Meeting Information
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Meeting Title
+                  </label>
+                  <Input
+                    value={meeting.title}
+                    onChange={(e) =>
+                      setMeeting({ ...meeting, title: e.target.value })
+                    }
+                    placeholder="Enter meeting title"
+                    className="w-full"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Optional)
+                  </label>
+                  <textarea
+                    value={meeting.description}
+                    onChange={(e) =>
+                      setMeeting({ ...meeting, description: e.target.value })
+                    }
+                    placeholder="Enter meeting description"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Calendar Selection First */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-2xl">Select Available Dates</CardTitle>
+            <CardDescription>
+              Choose multiple dates for your meeting
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DatePicker
+              selectedDates={meeting.selectedDates}
+              onChange={(dates) =>
+                setMeeting({ ...meeting, selectedDates: dates })
+              }
+              timezone={meeting.organizerTimezone}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </CardContent>
+          <CardFooter>
+            <div className="text-sm text-gray-500">
+              {meeting.selectedDates.length} date
+              {meeting.selectedDates.length !== 1 ? "s" : ""} selected
+            </div>
+          </CardFooter>
+        </Card>
+
+        {/* Feature Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-blue-50 p-6 rounded-lg">
+            <Calendar className="w-8 h-8 text-blue-600 mb-3" />
+            <h3 className="font-semibold text-gray-900 mb-2">
+              Flexible Scheduling
+            </h3>
+            <p className="text-gray-600">
+              Choose multiple dates that work for you
+            </p>
+          </div>
+          <div className="bg-green-50 p-6 rounded-lg">
+            <Clock className="w-8 h-8 text-green-600 mb-3" />
+            <h3 className="font-semibold text-gray-900 mb-2">Timezone Smart</h3>
+            <p className="text-gray-600">
+              Times automatically convert to each participant&apos;s timezone
+            </p>
+          </div>
+          <div className="bg-purple-50 p-6 rounded-lg">
+            <Users className="w-8 h-8 text-purple-600 mb-3" />
+            <h3 className="font-semibold text-gray-900 mb-2">Easy Sharing</h3>
+            <p className="text-gray-600">
+              Share a simple link with your participants
+            </p>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+        {/* Create Button */}
+        <Button
+          className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 py-6 text-lg"
+          disabled={
+            !meeting.organizerName ||
+            !meeting.title ||
+            meeting.selectedDates.length === 0
+          }
+          onClick={handleCreateMeeting}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Create Meeting
+          <ArrowRight className="w-5 h-5" />
+        </Button>
+      </div>
     </div>
   );
 }
