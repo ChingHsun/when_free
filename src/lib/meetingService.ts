@@ -11,27 +11,36 @@ import {
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 
-// 創建會議
-export async function createMeeting(
-  title: string,
-  description: string,
-  dates: string[],
-  name: string
-) {
+export async function createMeeting({
+  title,
+  description,
+  dates,
+  name,
+}: {
+  title: string;
+  description: string;
+  dates: string[];
+  name: string;
+}) {
   try {
     const meeting = {
       title,
       description,
       dates,
       createdAt: serverTimestamp(),
-      participants: [{ name }],
     };
 
-    // 添加到 Firestore
     const docRef = await addDoc(collection(firestore, "meetings"), meeting);
+    const meetingId = docRef.id;
+
+    await setDoc(doc(firestore, `meetings/${meetingId}/participants`, name), {
+      name,
+      availableSlots: [],
+      joinedAt: serverTimestamp(),
+    });
 
     return {
-      id: docRef.id,
+      id: meetingId,
     };
   } catch (error) {
     console.error("Error creating meeting:", error);

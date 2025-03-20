@@ -2,7 +2,7 @@ export interface Meeting {
   id: string;
   title: string;
   description: string;
-  selectedDates: string[];
+  dates: string[];
   resultTimeSlots: string[];
   participants: Participant[];
 }

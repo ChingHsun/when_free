@@ -26,7 +26,7 @@ export default function Home() {
     id: "",
     title: "",
     description: "",
-    selectedDates: [],
+    dates: [],
     resultTimeSlots: [],
     participants: [],
   });
@@ -41,12 +41,12 @@ export default function Home() {
     sessionStorage.setItem(NAME_STORAGE_KEY, name);
 
     try {
-      const { id } = await createMeeting(
-        meeting.title,
-        meeting.description,
-        meeting.selectedDates,
-        name
-      );
+      const { id } = await createMeeting({
+        title: meeting.title,
+        description: meeting.description,
+        dates: meeting.dates,
+        name,
+      });
 
       router.push(`/meetings/${id}`);
     } catch (error) {
@@ -159,7 +159,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <DatePicker
-              selectedDates={meeting.selectedDates}
+              selectedDates={meeting.dates}
               onChange={(dates) =>
                 setMeeting((meeting) => ({ ...meeting, selectedDates: dates }))
               }
@@ -168,8 +168,8 @@ export default function Home() {
           </CardContent>
           <CardFooter>
             <div className="text-sm text-gray-500">
-              {meeting.selectedDates.length} date
-              {meeting.selectedDates.length !== 1 ? "s" : ""} selected
+              {meeting.dates.length} date
+              {meeting.dates.length !== 1 ? "s" : ""} selected
             </div>
           </CardFooter>
         </Card>
@@ -204,9 +204,7 @@ export default function Home() {
         {/* Create Button */}
         <Button
           className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 py-6 text-lg"
-          disabled={
-            !name || !meeting.title || meeting.selectedDates.length === 0
-          }
+          disabled={!name || !meeting.title || meeting.dates.length === 0}
           onClick={handleCreateMeeting}
         >
           Create Meeting

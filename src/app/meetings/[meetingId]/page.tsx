@@ -14,30 +14,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getMeetingById, addParticipant } from "@/lib/meetingService";
+import {
+  getMeetingById,
+  addParticipant,
+  getParticipants,
+} from "@/lib/meetingService";
 import { TimeGrid } from "@/components/TimeGrid";
+import { AvailabilityTabs } from "@/components/AvailabilityTabs";
+import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
+import { Meeting, Participant } from "@/lib/types";
 
-interface TimeSlot {
-  id: string;
-  date: string;
-  hour: number;
-  minute: number;
-  selected: boolean;
-}
-
-export default function AvailabilityPage() {
+export default function MeetingPage() {
   const params = useParams();
   const router = useRouter();
   const meetingId = params.meetingId as string;
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [meeting, setMeeting] = useState<any>(null);
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [participantName, setParticipantName] = useState("");
   const [timezone, setTimezone] = useState("");
-  const [step, setStep] = useState("info"); // 'info' or 'selection'
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState<"info" | "selection">("info");
+  const [activeTab, setActiveTab] = useState<"selection" | "overview">(
+    "selection"
+  );
+  const [participants, setParticipants] = useState<Participant[]>([]);
 
   // Initialize timezone from browser
   useEffect(() => {
@@ -73,6 +76,10 @@ export default function AvailabilityPage() {
         }
 
         setMeeting(meetingData);
+
+        // Also load participants
+        const participantsData = await getParticipants(meetingId);
+        setParticipants(participantsData);
       } catch (err) {
         console.error("Error loading meeting:", err);
         setError("Failed to load meeting");
@@ -292,20 +299,62 @@ export default function AvailabilityPage() {
               </CardContent>
             </Card>
 
-            <Card className="mb-6 overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-lg">Time Selection Grid</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <TimeGrid
-                  dates={meeting?.dates || []}
-                  selectedSlots={selectedSlots}
-                  onSlotToggle={toggleTimeSlot}
-                  onMouseDown={handleMouseDown}
-                  onMouseEnter={handleMouseEnter}
-                />
-              </CardContent>
-            </Card>
+            <div className="mb-6">
+              <AvailabilityTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                participantsCount={participants.length}
+              />
+
+              {activeTab === "selection" ? (
+                <Card className="overflow-hidden">
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      Select Your Available Times
+                    </CardTitle>
+                    <CardDescription>
+                      Click and drag to select multiple time slots
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <TimeGrid
+                      dates={meeting?.dates || []}
+                      selectedSlots={selectedSlots}
+                      onSlotToggle={toggleTimeSlot}
+                      onMouseDown={handleMouseDown}
+                      onMouseEnter={handleMouseEnter}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="overflow-hidden">
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      Group Availability Overview
+                    </CardTitle>
+                    <CardDescription>
+                      See when everyone is available
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <GroupAvailabilityGrid
+                      dates={meeting?.dates || []}
+                      participants={participants}
+                    />
+                  </CardContent>
+                  {participants.length === 0 && (
+                    <div className="p-8 text-center">
+                      <p className="text-gray-500">
+                        No participants have joined yet.
+                      </p>
+                      <p className="text-gray-500 mt-1">
+                        Be the first to add your availability!
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
 
             <Button
               onClick={handleSubmit}
