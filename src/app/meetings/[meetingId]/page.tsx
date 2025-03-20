@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getMeetingById, addParticipant } from "@/lib/meetingService";
+import { TimeGrid } from "@/components/TimeGrid";
 
 interface TimeSlot {
   id: string;
@@ -35,21 +36,8 @@ export default function AvailabilityPage() {
   const [participantName, setParticipantName] = useState("");
   const [timezone, setTimezone] = useState("");
   const [step, setStep] = useState("info"); // 'info' or 'selection'
-  const [timeSlots, setTimeSlots] = useState<Record<string, TimeSlot[]>>({});
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let hour = 0; hour < 24; hour++) {
-      for (const minute of [0, 30]) {
-        const hourStr = hour.toString().padStart(2, "0");
-        const minuteStr = minute.toString().padStart(2, "0");
-        options.push(`${hourStr}:${minuteStr}`);
-      }
-    }
-    return options;
-  };
 
   // Initialize timezone from browser
   useEffect(() => {
@@ -85,7 +73,6 @@ export default function AvailabilityPage() {
         }
 
         setMeeting(meetingData);
-        generateTimeSlots(meetingData.dates);
       } catch (err) {
         console.error("Error loading meeting:", err);
         setError("Failed to load meeting");
@@ -98,33 +85,6 @@ export default function AvailabilityPage() {
       loadMeeting();
     }
   }, [meetingId]);
-
-  // Generate time slots for each date
-  const generateTimeSlots = (dates: string[]) => {
-    const slots: Record<string, TimeSlot[]> = {};
-
-    dates.forEach((dateStr) => {
-      const slotsForDate: TimeSlot[] = [];
-
-      // Generate time slots from 8 AM to 10 PM in 30-minute increments
-      for (let hour = 8; hour < 22; hour++) {
-        for (const minute of [0, 30]) {
-          const id = `${dateStr}_${hour}_${minute}`;
-          slotsForDate.push({
-            id,
-            date: dateStr,
-            hour,
-            minute,
-            selected: false,
-          });
-        }
-      }
-
-      slots[dateStr] = slotsForDate;
-    });
-
-    setTimeSlots(slots);
-  };
 
   // Toggle a single time slot
   const toggleTimeSlot = (slotId: string) => {
@@ -141,14 +101,6 @@ export default function AvailabilityPage() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return format(date, "EEEE, MMMM d, yyyy");
-  };
-
-  // Format time for display
-  const formatTime = (hour: number, minute: number) => {
-    const timeStr = `${hour.toString().padStart(2, "0")}:${minute
-      .toString()
-      .padStart(2, "0")}`;
-    return format(new Date(`2000-01-01T${timeStr}`), "h:mm a");
   };
 
   // Handle drag selection of time slots
@@ -269,7 +221,7 @@ export default function AvailabilityPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-4">
         {step === "info" ? (
           <Card>
             <CardHeader>
@@ -340,34 +292,20 @@ export default function AvailabilityPage() {
               </CardContent>
             </Card>
 
-            {Object.entries(timeSlots).map(([date, slots]) => (
-              <Card key={date} className="mb-6">
-                <CardHeader>
-                  <CardTitle className="text-lg">{formatDate(date)}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                    {slots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className={`
-                          p-2 rounded-lg text-sm font-medium transition-colors cursor-pointer select-none
-                          ${
-                            selectedSlots.includes(slot.id)
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
-                          }
-                        `}
-                        onMouseDown={() => handleMouseDown(slot.id)}
-                        onMouseEnter={() => handleMouseEnter(slot.id)}
-                      >
-                        {formatTime(slot.hour, slot.minute)}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <Card className="mb-6 overflow-hidden">
+              <CardHeader>
+                <CardTitle className="text-lg">Time Selection Grid</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <TimeGrid
+                  dates={meeting?.dates || []}
+                  selectedSlots={selectedSlots}
+                  onSlotToggle={toggleTimeSlot}
+                  onMouseDown={handleMouseDown}
+                  onMouseEnter={handleMouseEnter}
+                />
+              </CardContent>
+            </Card>
 
             <Button
               onClick={handleSubmit}
