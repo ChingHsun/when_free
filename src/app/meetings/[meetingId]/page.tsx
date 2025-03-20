@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
-import { Check, Clock, Users, ArrowLeft, ArrowRight } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,11 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  getMeetingById,
-  addParticipant,
-  updateParticipantAvailability,
-} from "@/lib/meetingService";
+import { getMeetingById, addParticipant } from "@/lib/meetingService";
 
 interface TimeSlot {
   id: string;
@@ -43,6 +38,18 @@ export default function AvailabilityPage() {
   const [timeSlots, setTimeSlots] = useState<Record<string, TimeSlot[]>>({});
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (const minute of [0, 30]) {
+        const hourStr = hour.toString().padStart(2, "0");
+        const minuteStr = minute.toString().padStart(2, "0");
+        options.push(`${hourStr}:${minuteStr}`);
+      }
+    }
+    return options;
+  };
 
   // Initialize timezone from browser
   useEffect(() => {

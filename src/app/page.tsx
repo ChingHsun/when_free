@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,56 +16,38 @@ import {
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { createMeeting } from "@/lib/meetingService";
+import { NAME_STORAGE_KEY, TIMEZONE_STORAGE_KEY } from "@/lib/constants";
+import { Meeting } from "@/lib/types";
 
-// Types
-export interface Meeting {
-  title: string;
-  description: string;
-  organizerName: string;
-  selectedTimezone: string;
-  selectedDates: string[];
-  availableTimeSlots: unknown[];
-}
-const TIMEZONE_STORAGE_KEY = "user-timezone";
 export default function Home() {
   const router = useRouter();
-  // Initialize with browser timezone
+
   const [meeting, setMeeting] = useState<Meeting>({
+    id: "",
     title: "",
     description: "",
-    organizerName: "",
-    selectedTimezone: "",
     selectedDates: [],
-    availableTimeSlots: [],
+    resultTimeSlots: [],
+    participants: [],
   });
 
-  // Generate time options in 30-minute increments
-  const generateTimeOptions = () => {
-    const options = [];
-    for (let hour = 0; hour < 24; hour++) {
-      for (const minute of [0, 30]) {
-        const hourStr = hour.toString().padStart(2, "0");
-        const minuteStr = minute.toString().padStart(2, "0");
-        options.push(`${hourStr}:${minuteStr}`);
-      }
-    }
-    return options;
-  };
+  const [name, setName] = useState<string>("");
+  const [timeZone, setTimeZone] = useState<string>("");
 
-  const timeOptions = generateTimeOptions();
-
-  const handleCreateMeeting = async (event) => {
-    console.log("Creating meeting:", meeting);
-
+  const handleCreateMeeting = async (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
     event.preventDefault();
+    sessionStorage.setItem(NAME_STORAGE_KEY, name);
+
     try {
-      const { id, shareCode } = await createMeeting(
+      const { id } = await createMeeting(
         meeting.title,
         meeting.description,
-        meeting.selectedDates
+        meeting.selectedDates,
+        name
       );
 
-      // 導航到下一頁
       router.push(`/meetings/${id}`);
     } catch (error) {
       console.error("Error creating meeting:", error);
@@ -75,23 +56,21 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // 現在安全地訪問 sessionStorage
     const storedTimezone = sessionStorage.getItem(TIMEZONE_STORAGE_KEY);
     if (storedTimezone) {
-      setMeeting((meeting) => ({
-        ...meeting,
-        selectedTimezone: storedTimezone,
-      }));
+      setTimeZone(storedTimezone);
     } else {
       const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      setMeeting((meeting) => ({
-        ...meeting,
-        selectedTimezone: browserTimezone,
-      }));
-
+      setTimeZone(browserTimezone);
       sessionStorage.setItem("user-timezone", browserTimezone);
     }
+
+    const storedName = sessionStorage.getItem(NAME_STORAGE_KEY);
+    if (storedName) {
+      setName(storedName);
+    }
   }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -112,10 +91,8 @@ export default function Home() {
                     Your Name
                   </label>
                   <Input
-                    value={meeting.organizerName}
-                    onChange={(e) =>
-                      setMeeting({ ...meeting, organizerName: e.target.value })
-                    }
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your name"
                     className="w-full"
                   />
@@ -126,10 +103,8 @@ export default function Home() {
                     Your Timezone
                   </label>
                   <TimezoneSelect
-                    value={meeting.selectedTimezone}
-                    onChange={(timezone) =>
-                      setMeeting({ ...meeting, selectedTimezone: timezone })
-                    }
+                    value={timeZone}
+                    onChange={(timezone) => setTimeZone(timezone)}
                   />
                 </div>
               </div>
@@ -188,7 +163,7 @@ export default function Home() {
               onChange={(dates) =>
                 setMeeting((meeting) => ({ ...meeting, selectedDates: dates }))
               }
-              timezone={meeting.selectedTimezone}
+              timezone={timeZone}
             />
           </CardContent>
           <CardFooter>
@@ -230,9 +205,7 @@ export default function Home() {
         <Button
           className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 py-6 text-lg"
           disabled={
-            !meeting.organizerName ||
-            !meeting.title ||
-            meeting.selectedDates.length === 0
+            !name || !meeting.title || meeting.selectedDates.length === 0
           }
           onClick={handleCreateMeeting}
         >

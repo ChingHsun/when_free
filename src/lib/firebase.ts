@@ -11,9 +11,6 @@ const firebaseConfig = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
-console.log("s", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
-
-// Initialize Firebase
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
 const firestore = getFirestore(app);
 

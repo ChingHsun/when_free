@@ -1,48 +1,19 @@
 import { useState, useEffect } from "react";
 import { Globe, Search } from "lucide-react";
+import { TIMEZONE_STORAGE_KEY } from "@/lib/constants";
 
 interface TimezoneSelectProps {
   value: string;
   onChange: (timezone: string) => void;
-  autoDetect?: boolean;
 }
 
-const TIMEZONE_STORAGE_KEY = "user-timezone";
-
-export function TimezoneSelect({
-  value,
-  onChange,
-  autoDetect = true,
-}: TimezoneSelectProps) {
+export function TimezoneSelect({ value, onChange }: TimezoneSelectProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [timezones, setTimezones] = useState<string[]>([]);
+  const [timezones] = useState<string[]>(() =>
+    Intl.supportedValuesOf("timeZone")
+  );
   const [filteredTimezones, setFilteredTimezones] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (value === "") {
-      const storedTimezone = sessionStorage.getItem(TIMEZONE_STORAGE_KEY);
-
-      if (storedTimezone) {
-        onChange(storedTimezone);
-      } else if (autoDetect) {
-        const browserTimezone =
-          Intl.DateTimeFormat().resolvedOptions().timeZone;
-        onChange(browserTimezone);
-        sessionStorage.setItem(TIMEZONE_STORAGE_KEY, browserTimezone);
-      }
-    }
-  }, [autoDetect, onChange, value]);
-
-  useEffect(() => {
-		
-    if (typeof Intl !== "undefined" && Intl.supportedValuesOf) {
-      setTimezones(Intl.supportedValuesOf("timeZone"));
-    }
-
-		if(sessionStorage.getItem(TIMEZONE_STORAGE_KEY)){
-		}
-  }, []);
 
   useEffect(() => {
     if (searchTerm.trim() === "") {
@@ -55,10 +26,6 @@ export function TimezoneSelect({
     }
   }, [searchTerm, timezones]);
 
-  const formatTimezone = (tz: string) => {
-    return tz.replace(/_/g, " ");
-  };
-
   return (
     <div className="relative">
       <div
@@ -67,7 +34,7 @@ export function TimezoneSelect({
       >
         <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
         <div className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-800">
-          {formatTimezone(value)}
+          {value}
         </div>
       </div>
 
@@ -98,7 +65,7 @@ export function TimezoneSelect({
                   setIsOpen(false);
                 }}
               >
-                {formatTimezone(timezone)}
+                {timezone}
               </div>
             ))}
           </div>

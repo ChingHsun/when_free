@@ -1,4 +1,3 @@
-// src/lib/meetingService.ts
 import {
   collection,
   addDoc,
@@ -7,11 +6,8 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  query,
-  where,
   serverTimestamp,
   Timestamp,
-  DocumentData,
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 
@@ -19,15 +15,16 @@ import { firestore } from "./firebase";
 export async function createMeeting(
   title: string,
   description: string,
-  dates: string[]
+  dates: string[],
+  name: string
 ) {
   try {
-    // 準備會議資料
     const meeting = {
       title,
       description,
-      dates, // 日期數組 (YYYY-MM-DD 格式)
+      dates,
       createdAt: serverTimestamp(),
+      participants: [{ name }],
     };
 
     // 添加到 Firestore
@@ -67,11 +64,9 @@ export async function getMeetingById(id: string) {
   }
 }
 
-// 添加參與者
 export async function addParticipant(
   meetingId: string,
   name: string,
-  timezone: string,
   availableSlots: string[]
 ) {
   try {
@@ -84,17 +79,14 @@ export async function addParticipant(
     const participantSnapshot = await getDoc(participantRef);
 
     if (participantSnapshot.exists()) {
-      // 如果參與者已存在，更新其可用時間
       await updateDoc(participantRef, {
         availableSlots,
-        timezone,
         lastUpdated: serverTimestamp(),
       });
     } else {
       // 創建新參與者
       await setDoc(participantRef, {
         name,
-        timezone,
         availableSlots,
         joinedAt: serverTimestamp(),
       });

@@ -1,19 +1,17 @@
-// components/DatePicker.tsx
-import React from "react";
 import {
   format,
   addDays,
   isSameDay,
   startOfDay,
   startOfWeek,
-  endOfDay,
   parseISO,
 } from "date-fns";
-import { zonedTimeToUtc, utcToZonedTime } from "date-fns-tz";
+import { utcToZonedTime } from "date-fns-tz";
+import { WEEK_DAYS } from "@/lib/constants";
 
 interface DatePickerProps {
-  selectedDates: string[]; // 使用ISO字符串數組而不是Date對象
-  onChange: (dates: string[]) => void; // 返回ISO字符串
+  selectedDates: string[];
+  onChange: (dates: string[]) => void;
   timezone: string;
 }
 
@@ -22,51 +20,27 @@ export function DatePicker({
   onChange,
   timezone,
 }: DatePickerProps) {
-  // 轉換當前時間到選擇的時區
   const nowInTimezone = utcToZonedTime(new Date(), timezone);
   const todayInTimezone = startOfDay(nowInTimezone);
-  const endOfTodayInTimezone = endOfDay(todayInTimezone);
 
-  // 計算5週的日曆天數
   const firstDayOfCalendar = startOfWeek(todayInTimezone);
   const calendarDays = Array.from({ length: 35 }, (_, i) =>
     addDays(firstDayOfCalendar, i)
   );
 
-  // 切換日期選擇
-  const toggleDate = (date: Date) => {
-    // 確保日期是在用戶時區的午夜時間
-    const dateInTimezone = startOfDay(utcToZonedTime(date, timezone));
+  const toggleDate = (selectedDate: Date) => {
+    const dateStringsSet = new Set(selectedDates);
+    const selectedDateISO = selectedDate.toISOString();
 
-    // 檢查日期是否在過去
-    const isPast = dateInTimezone < endOfTodayInTimezone;
-    if (isPast) return;
-
-    // 將時區日期轉換為UTC ISO字符串（僅保留日期部分）
-    const dateInUTC = zonedTimeToUtc(dateInTimezone, timezone);
-    const dateISOString = dateInUTC.toISOString().split("T")[0]; // 只保留 "YYYY-MM-DD" 部分
-
-    // 檢查日期是否已被選擇
-    const isSelected = selectedDates.some((isoStr) => {
-      const dateObj = parseISO(isoStr);
-      return isSameDay(utcToZonedTime(dateObj, timezone), dateInTimezone);
-    });
-
-    if (isSelected) {
-      // 移除日期
-      onChange(
-        selectedDates.filter((isoStr) => {
-          const dateObj = parseISO(isoStr);
-          return !isSameDay(utcToZonedTime(dateObj, timezone), dateInTimezone);
-        })
-      );
+    if (dateStringsSet.has(selectedDateISO)) {
+      dateStringsSet.delete(selectedDateISO);
     } else {
-      // 添加日期
-      onChange([...selectedDates, dateISOString]);
+      dateStringsSet.add(selectedDateISO);
     }
+
+    onChange(Array.from(dateStringsSet));
   };
 
-  // 按月份和年份分組日期
   const renderMonthCalendar = (dates: Date[]) => {
     const dateGroups = dates.reduce<Record<string, Date[]>>((acc, date) => {
       const key = format(date, "MMMM yyyy");
@@ -81,8 +55,7 @@ export function DatePicker({
       <div key={monthYear} className="space-y-2">
         <h3 className="text-lg font-semibold text-gray-800">{monthYear}</h3>
         <div className="grid grid-cols-7 gap-2">
-          {/* 星期幾標題 */}
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          {WEEK_DAYS.map((day) => (
             <div
               key={day}
               className="text-xs font-medium text-gray-500 text-center p-2"
@@ -91,18 +64,13 @@ export function DatePicker({
             </div>
           ))}
 
-          {/* 日期按鈕 */}
+          {/* date button */}
           {monthDates.map((date) => {
-            const dateInTimezone = utcToZonedTime(date, timezone);
-            const isPast = dateInTimezone < endOfTodayInTimezone;
+            const isPast = date < todayInTimezone;
 
-            // 檢查日期是否已被選擇
             const isSelected = selectedDates.some((isoStr) => {
               const dateObj = parseISO(isoStr);
-              return isSameDay(
-                utcToZonedTime(dateObj, timezone),
-                dateInTimezone
-              );
+              return isSameDay(dateObj, date);
             });
 
             return (
@@ -122,9 +90,9 @@ export function DatePicker({
                 `}
               >
                 <div className="text-center">
-                  {format(dateInTimezone, "d")}
+                  {format(date, "d")}
                   <div className="text-[10px] mt-0.5">
-                    {format(dateInTimezone, "EEE")}
+                    {format(date, "EEE")}
                   </div>
                 </div>
               </button>
