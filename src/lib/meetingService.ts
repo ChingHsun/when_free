@@ -215,19 +215,3 @@ export async function getOverlappingSlots(meetingId: string) {
     throw error;
   }
 }
-
-// 刪除參與者
-export async function deleteParticipant(meetingId: string, name: string) {
-  try {
-    const participantRef = doc(
-      firestore,
-      `meetings/${meetingId}/participants`,
-      name
-    );
-    await participantRef.delete();
-    return true;
-  } catch (error) {
-    console.error("Error deleting participant:", error);
-    throw error;
-  }
-}

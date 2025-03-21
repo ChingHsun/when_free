@@ -12,3 +12,14 @@ export interface Participant {
   name: string;
   availableSlots?: string[];
 }
+
+export interface AvailabilityResult {
+  slotId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  participants: string[];
+  count: number;
+  totalParticipants: number;
+  percentage: number;
+}

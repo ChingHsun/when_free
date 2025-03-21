@@ -2,33 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { format, parseISO } from "date-fns";
-import { Copy, Check, Clock, Users, CalendarClock } from "lucide-react";
+import { Clock, Users, CalendarClock, Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  getMeetingById,
-  getParticipants,
-  getOverlappingSlots,
-} from "@/lib/meetingService";
 
-interface AvailabilityResult {
-  slotId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  participants: string[];
-  count: number;
-  totalParticipants: number;
-  percentage: number;
-}
+import { Fallback } from "@/components/Fallback";
+import { useMeetingStore } from "@/store/meetingStore";
+import { format, parseISO } from "date-fns";
+import { getOverlappingSlots } from "@/lib/meetingService";
+import { AvailabilityResult } from "@/lib/types";
 
 export default function ResultsPage() {
   const params = useParams();
@@ -37,187 +25,273 @@ export default function ResultsPage() {
   const meetingId = params.meetingId as string;
   const name = searchParams.get("name");
 
+  const { meeting, participants, fetchMeeting } = useMeetingStore();
+
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [meeting, setMeeting] = useState<any>(null);
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [results, setResults] = useState<AvailabilityResult[]>([]);
-  const [timezone, setTimezone] = useState("");
-  const [linkCopied, setLinkCopied] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const [resultsByDate, setResultsByDate] = useState<
+    Record<string, AvailabilityResult[]>
+  >({});
+  const [timezone, setTimezone] = useState<string>("");
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
-  // Initialize timezone from browser
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    // Set the timezone
+    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+    async function fetchData() {
+      setIsLoading(true);
       try {
-        const storedTimezone = sessionStorage.getItem("user-timezone");
-        if (storedTimezone) {
-          setTimezone(storedTimezone);
-        } else {
-          const browserTimezone =
-            Intl.DateTimeFormat().resolvedOptions().timeZone;
-          setTimezone(browserTimezone);
-          sessionStorage.setItem("user-timezone", browserTimezone);
-        }
-      } catch (error) {
-        console.error("Error accessing sessionStorage:", error);
-        const browserTimezone =
-          Intl.DateTimeFormat().resolvedOptions().timeZone;
-        setTimezone(browserTimezone);
-      }
-    }
-  }, []);
+        await fetchMeeting({ meetingId });
+        const results = await getOverlappingSlots(meetingId);
 
-  // Load meeting data, participants, and calculate overlapping slots
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoading(true);
+        // Process the results
+        const processedResults: Record<string, AvailabilityResult[]> = {};
 
-        // Load meeting data
-        const meetingData = await getMeetingById(meetingId);
-        if (!meetingData) {
-          setError("Meeting not found");
-          return;
-        }
-        setMeeting(meetingData);
+        results.forEach((result) => {
+          // Parse the slot ID format: date_hour_minute
+          const [dateStr, hourStr, minuteStr] = result.slot.split("_");
+          const hour = parseInt(hourStr);
+          const minute = parseInt(minuteStr);
 
-        // Load participants
-        const participantsData = await getParticipants(meetingId);
-        setParticipants(participantsData);
+          // Create formatted time strings
+          const startTime = `${hour.toString().padStart(2, "0")}:${minute
+            .toString()
+            .padStart(2, "0")}`;
+          const endMinute = minute === 30 ? 0 : 30;
+          const endHour = minute === 30 ? (hour + 1) % 24 : hour;
+          const endTime = `${endHour.toString().padStart(2, "0")}:${endMinute
+            .toString()
+            .padStart(2, "0")}`;
 
-        // Calculate overlapping time slots
-        const overlappingSlots = await getOverlappingSlots(meetingId);
+          if (!processedResults[dateStr]) {
+            processedResults[dateStr] = [];
+          }
 
-        // Process results for display
-        const processedResults = processResults(
-          overlappingSlots,
-          participantsData.length
-        );
-        setResults(processedResults);
+          processedResults[dateStr].push({
+            slotId: result.slot,
+            date: dateStr,
+            startTime,
+            endTime,
+            participants: result.participants,
+            count: result.count,
+            totalParticipants: participants?.length || 0,
+            // Update percentage calculation to handle zero participants case
+            percentage: participants?.length
+              ? Math.round((result.count / participants.length) * 100)
+              : 0,
+          });
+        });
+
+        setResultsByDate(processedResults);
       } catch (err) {
-        console.error("Error loading results:", err);
-        setError("Failed to load meeting results");
+        console.error("Error fetching meeting data:", err);
+        setError(
+          err instanceof Error ? err.message : "Failed to load meeting results"
+        );
       } finally {
         setIsLoading(false);
       }
     }
 
-    if (meetingId) {
-      loadData();
-    }
-  }, [meetingId]);
+    fetchData();
+  }, [fetchMeeting, meetingId, participants?.length]);
 
-  // Process raw overlapping slots data into a more structured format
-  const processResults = (
-    overlappingData: any[],
-    totalParticipants: number
-  ) => {
-    return overlappingData
-      .map((item) => {
-        // Parse slot ID to extract date and time info
-        // Format: date_hour_minute (e.g., "2023-04-15_14_30")
-        const [date, hourStr, minuteStr] = item.slot.split("_");
-        const hour = parseInt(hourStr);
-        const minute = parseInt(minuteStr);
-
-        // Calculate end time (30 minutes later)
-        let endHour = hour;
-        let endMinute = minute + 30;
-
-        if (endMinute >= 60) {
-          endHour += 1;
-          endMinute = 0;
-        }
-
-        const startTime = `${hour.toString().padStart(2, "0")}:${minute
-          .toString()
-          .padStart(2, "0")}`;
-        const endTime = `${endHour.toString().padStart(2, "0")}:${endMinute
-          .toString()
-          .padStart(2, "0")}`;
-
-        return {
-          slotId: item.slot,
-          date,
-          startTime,
-          endTime,
-          participants: item.participants || [],
-          count: item.count,
-          totalParticipants,
-          percentage: item.percentage,
-        };
-      })
-      .sort((a, b) => {
-        // Sort by date first
-        if (a.date !== b.date) {
-          return a.date.localeCompare(b.date);
-        }
-
-        // Then by start time
-        return a.startTime.localeCompare(b.startTime);
-      });
-  };
-
-  // Format date for display
   const formatDate = (dateStr: string) => {
     const date = parseISO(dateStr);
     return format(date, "EEEE, MMMM d, yyyy");
   };
 
-  // Format time for display
   const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    return format(new Date(2000, 0, 1, hours, minutes), "h:mm a");
+    // Format from 24h to 12h format
+    const [hourStr, minuteStr] = timeStr.split(":");
+    const hour = parseInt(hourStr);
+    const minute = minuteStr;
+
+    const period = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12; // Convert 0 to 12 for 12 AM
+
+    return `${hour12}:${minute} ${period}`;
   };
 
-  // Copy share link to clipboard
-  const copyShareLink = () => {
-    const shareLink = `${window.location.origin}/meetings/${meetingId}/availability`;
-    navigator.clipboard.writeText(shareLink);
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+  const handleCopyLink = () => {
+    const shareUrl = window.location.origin + `/meetings/${meetingId}`;
+    navigator.clipboard.writeText(shareUrl);
+    setShowCopiedMessage(true);
+    setTimeout(() => setShowCopiedMessage(false), 2000);
   };
 
-  // Group results by date
-  const resultsByDate = results.reduce<Record<string, AvailabilityResult[]>>(
-    (acc, result) => {
-      if (!acc[result.date]) {
-        acc[result.date] = [];
+  if (isLoading) return <Fallback status="loading" />;
+
+  if (error) return <Fallback status="error" errorMessage={error} />;
+
+  // Check if two slots are consecutive
+  const areConsecutiveSlots = (
+    slot1: AvailabilityResult,
+    slot2: AvailabilityResult
+  ) => {
+    // Must be same date and same percentage
+    if (slot1.date !== slot2.date || slot1.percentage !== slot2.percentage)
+      return false;
+
+    // Must have same participants
+    if (slot1.participants.length !== slot2.participants.length) return false;
+    if (!slot1.participants.every((p) => slot2.participants.includes(p)))
+      return false;
+
+    // Check if endTime of slot1 is startTime of slot2
+    return slot1.endTime === slot2.startTime;
+  };
+
+  // Calculate duration between two time strings (in minutes)
+  const calculateDuration = (startTime: string, endTime: string) => {
+    const [startHour, startMinute] = startTime.split(":").map(Number);
+    // eslint-disable-next-line prefer-const
+    let [endHour, endMinute] = endTime.split(":").map(Number);
+
+    // Adjust for next day if needed
+    if (
+      endHour < startHour ||
+      (endHour === startHour && endMinute < startMinute)
+    ) {
+      endHour += 24;
+    }
+
+    const totalStartMinutes = startHour * 60 + startMinute;
+    const totalEndMinutes = endHour * 60 + endMinute;
+
+    return totalEndMinutes - totalStartMinutes;
+  };
+
+  // Format duration in hours and minutes
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hours === 0) {
+      return `${mins} minutes`;
+    } else if (mins === 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""}`;
+    } else {
+      return `${hours} hour${hours > 1 ? "s" : ""} ${mins} minutes`;
+    }
+  };
+
+  // Prepare result data for display
+  const prepareResultData = () => {
+    // Flatten all results to sort them globally
+    const allResults: (AvailabilityResult & { formattedDate: string })[] = [];
+
+    Object.entries(resultsByDate).forEach(([date, dateResults]) => {
+      dateResults.forEach((result) => {
+        allResults.push({
+          ...result,
+          formattedDate: formatDate(date),
+        });
+      });
+    });
+
+    // Sort by percentage, prioritizing 100% matches
+    allResults.sort((a, b) => {
+      // First prioritize 100% matches
+      if (a.percentage === 100 && b.percentage !== 100) return -1;
+      if (b.percentage === 100 && a.percentage !== 100) return 1;
+
+      // Then sort by percentage
+      if (a.percentage !== b.percentage) return b.percentage - a.percentage;
+
+      // If tied, sort by date
+      const dateComparison =
+        new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateComparison !== 0) return dateComparison;
+
+      // If same date, sort by time
+      const [aHour, aMinute] = a.startTime.split(":").map(Number);
+      const [bHour, bMinute] = b.startTime.split(":").map(Number);
+      const aMinutes = aHour * 60 + aMinute;
+      const bMinutes = bHour * 60 + bMinute;
+      return aMinutes - bMinutes;
+    });
+
+    // Group consecutive slots
+    const groupedResults: (AvailabilityResult & {
+      formattedDate: string;
+      duration: number;
+      formattedDuration: string;
+    })[] = [];
+
+    let currentGroup: (AvailabilityResult & { formattedDate: string })[] = [];
+
+    allResults.forEach((result, index) => {
+      if (index === 0) {
+        currentGroup = [result];
+      } else {
+        const prevResult = allResults[index - 1];
+
+        if (areConsecutiveSlots(prevResult, result)) {
+          currentGroup.push(result);
+        } else {
+          // Process the current group
+          if (currentGroup.length > 0) {
+            const firstSlot = currentGroup[0];
+            const lastSlot = currentGroup[currentGroup.length - 1];
+            const duration = calculateDuration(
+              firstSlot.startTime,
+              lastSlot.endTime
+            );
+
+            groupedResults.push({
+              ...firstSlot,
+              endTime: lastSlot.endTime,
+              duration,
+              formattedDuration: formatDuration(duration),
+            });
+          }
+
+          // Start a new group
+          currentGroup = [result];
+        }
       }
-      acc[result.date].push(result);
-      return acc;
-    },
-    {}
-  );
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading results...</p>
-        </div>
-      </div>
-    );
-  }
+      // Process the last group if we're at the end
+      if (index === allResults.length - 1 && currentGroup.length > 0) {
+        const firstSlot = currentGroup[0];
+        const lastSlot = currentGroup[currentGroup.length - 1];
+        const duration = calculateDuration(
+          firstSlot.startTime,
+          lastSlot.endTime
+        );
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-red-600">Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>{error}</p>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => router.push("/")}>Go Home</Button>
-          </CardFooter>
-        </Card>
-      </div>
+        groupedResults.push({
+          ...firstSlot,
+          endTime: lastSlot.endTime,
+          duration,
+          formattedDuration: formatDuration(duration),
+        });
+      }
+    });
+
+    // Check if any results have >= 50% availability
+    const hasResultsAbove50Percent = groupedResults.some(
+      (result) => result.percentage >= 50
     );
-  }
+
+    // Filter to >= 50% if some results meet that criteria
+    const filteredResults = hasResultsAbove50Percent
+      ? groupedResults.filter((result) => result.percentage >= 50)
+      : groupedResults;
+
+    return {
+      filteredResults,
+      hasResultsAbove50Percent,
+      allResults: groupedResults,
+    };
+  };
+
+  const { filteredResults, hasResultsAbove50Percent, allResults } =
+    prepareResultData();
+  const anyResultsExist = allResults.length > 0;
+  const noResultsAbove50Percent = anyResultsExist && !hasResultsAbove50Percent;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -233,26 +307,23 @@ export default function ResultsPage() {
             <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div className="flex items-center text-sm text-gray-500">
                 <Users className="mr-2 h-4 w-4" />
-                <span>{participants.length} participants</span>
+                <span>{participants?.length || 0} participants</span>
               </div>
 
-              <Button
-                onClick={copyShareLink}
-                variant="outline"
-                className="flex items-center"
-              >
-                {linkCopied ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Invitation Link
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-2"
+                >
+                  <Share2 className="h-4 w-4" />
+                  {showCopiedMessage ? "Copied!" : "Share Meeting"}
+                  {!showCopiedMessage && <Copy className="h-4 w-4" />}
+                </Button>
+                <Button onClick={() => router.push(`/meetings/${meetingId}`)}>
+                  Update Availability
+                </Button>
+              </div>
             </div>
 
             {name && (
@@ -274,24 +345,24 @@ export default function ResultsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {participants.map((participant) => (
-                <div
-                  key={participant.name}
-                  className={`p-3 rounded-md border ${
-                    name === participant.name
-                      ? "border-blue-300 bg-blue-50"
-                      : "border-gray-200"
-                  }`}
-                >
-                  <p className="font-medium">{participant.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {participant.availableSlots?.length || 0} time slots
-                    selected
-                  </p>
-                </div>
-              ))}
-
-              {participants.length === 0 && (
+              {participants && participants.length > 0 ? (
+                participants.map((participant) => (
+                  <div
+                    key={participant.name}
+                    className={`p-3 rounded-md border ${
+                      name === participant.name
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
+                  >
+                    <p className="font-medium">{participant.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {participant.availableSlots?.length || 0} time slots
+                      selected
+                    </p>
+                  </div>
+                ))
+              ) : (
                 <div className="col-span-full text-center py-6 text-gray-500">
                   <p>No participants have joined yet.</p>
                   <p className="mt-2">Share the link to invite others!</p>
@@ -301,47 +372,87 @@ export default function ResultsPage() {
           </CardContent>
         </Card>
 
-        {/* Results by date */}
-        {Object.keys(resultsByDate).length > 0 ? (
-          Object.entries(resultsByDate).map(([date, dateResults]) => (
-            <Card key={date} className="mb-6">
-              <CardHeader>
-                <CardTitle>{formatDate(date)}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {dateResults
-                    .sort((a, b) => b.percentage - a.percentage)
-                    .map((result) => (
-                      <div
-                        key={result.slotId}
-                        className="p-3 border rounded-md flex flex-col sm:flex-row sm:items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <Clock className="h-5 w-5 text-gray-500 mr-2" />
-                          <span className="font-medium">
-                            {formatTime(result.startTime)} -{" "}
-                            {formatTime(result.endTime)}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 sm:mt-0 flex items-center">
-                          <div className="w-full sm:w-32 bg-gray-200 rounded-full h-2.5 mr-2">
-                            <div
-                              className="bg-blue-600 h-2.5 rounded-full"
-                              style={{ width: `${result.percentage}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm whitespace-nowrap">
-                            {result.count}/{result.totalParticipants} people
-                          </span>
-                        </div>
+        {/* Results section */}
+        {anyResultsExist ? (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-xl">Best Meeting Times</CardTitle>
+              {filteredResults.length > 0 &&
+                filteredResults[0].percentage === 100 && (
+                  <CardDescription className="text-green-600 font-medium">
+                    Perfect matches found! Everyone is available at the
+                    following times.
+                  </CardDescription>
+                )}
+              {noResultsAbove50Percent && (
+                <CardDescription className="text-amber-600 font-medium">
+                  No times with majority availability found. Showing all
+                  options.
+                </CardDescription>
+              )}
+              {hasResultsAbove50Percent &&
+                filteredResults[0].percentage !== 100 && (
+                  <CardDescription>
+                    Showing times with at least 50% participant availability.
+                  </CardDescription>
+                )}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {filteredResults.map((result) => (
+                  <div
+                    key={result.slotId}
+                    className={`p-3 border rounded-md flex flex-col sm:flex-row sm:items-center justify-between ${
+                      result.percentage === 100
+                        ? "bg-green-50 border-green-200"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start flex-col">
+                      <div className="flex items-center mb-1">
+                        <Clock className="h-5 w-5 text-gray-500 mr-2" />
+                        <span className="font-medium">
+                          {formatTime(result.startTime)} -{" "}
+                          {formatTime(result.endTime)}
+                        </span>
                       </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                      <div className="text-sm text-gray-500 ml-7">
+                        {result.formattedDate}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 sm:mt-0 flex items-center">
+                      <div className="w-full sm:w-32 bg-gray-200 rounded-full h-2.5 mr-2">
+                        <div
+                          className={`h-2.5 rounded-full ${
+                            result.percentage === 100
+                              ? "bg-green-600"
+                              : result.percentage >= 75
+                              ? "bg-blue-600"
+                              : "bg-blue-400"
+                          }`}
+                          style={{ width: `${result.percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm whitespace-nowrap">
+                        {result.count}/{result.totalParticipants} people
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {hasResultsAbove50Percent &&
+                allResults.length > filteredResults.length && (
+                  <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                    <p className="text-sm text-gray-500">
+                      {allResults.length - filteredResults.length} time slots
+                      with less than 50% availability are hidden.
+                    </p>
+                  </div>
+                )}
+            </CardContent>
+          </Card>
         ) : (
           <Card className="text-center py-12">
             <CardContent>
@@ -355,9 +466,7 @@ export default function ResultsPage() {
               </p>
 
               <Button
-                onClick={() =>
-                  router.push(`/meetings/${meetingId}/availability`)
-                }
+                onClick={() => router.push(`/meetings/${meetingId}`)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Select Your Availability
