@@ -16,43 +16,43 @@ import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
-import { createMeeting } from "@/lib/meetingService";
-import { Meeting } from "@/lib/types";
+import { useMeetingStore } from "@/store/meetingStore";
+import { Fallback } from "@/components/Fallback";
 
 export default function Home() {
   const router = useRouter();
 
-  const [meeting, setMeeting] = useState<Meeting>({
-    id: "",
-    title: "",
-    description: "",
-    dates: [],
-    resultTimeSlots: [],
-    participants: [],
-  });
-
+  const { meeting, setMeeting, createMeeting } = useMeetingStore();
   const [name, setName] = useState<string>("");
   const [timeZone, setTimeZone] = useState<string>("");
+  const [error, setError] = useState<string | undefined>();
 
   const handleCreateMeeting = async (
     event: React.MouseEvent<HTMLButtonElement>
   ) => {
     event.preventDefault();
 
-    try {
-      const { id } = await createMeeting({
+    if (meeting && name?.trim()) {
+      createMeeting({
         title: meeting.title,
         description: meeting.description,
         dates: meeting.dates,
-        name,
-      });
-
-      router.push(`/meetings/${id}`);
-    } catch (error) {
-      console.error("Error creating meeting:", error);
+        name: name,
+      })
+        .then((meetingId) => {
+          alert("Meeting created! You would be redirected to share the link.");
+          router.push(`/meetings/${meetingId}`);
+        })
+        .catch((err) => {
+          console.error("Error creating meeting:", err);
+          setError(err);
+        });
+    } else {
+      setError("There're fields not completed yet");
     }
-    alert("Meeting created! You would be redirected to share the link.");
   };
+
+  if (error) return <Fallback status="error" errorMessage={error} />;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,10 +104,8 @@ export default function Home() {
                     Meeting Title
                   </label>
                   <Input
-                    value={meeting.title}
-                    onChange={(e) =>
-                      setMeeting({ ...meeting, title: e.target.value })
-                    }
+                    value={meeting.title || ""}
+                    onChange={(e) => setMeeting({ title: e.target.value })}
                     placeholder="Enter meeting title"
                     className="w-full"
                   />
@@ -118,9 +116,9 @@ export default function Home() {
                     Description (Optional)
                   </label>
                   <textarea
-                    value={meeting.description}
+                    value={meeting.description || ""}
                     onChange={(e) =>
-                      setMeeting({ ...meeting, description: e.target.value })
+                      setMeeting({ description: e.target.value })
                     }
                     placeholder="Enter meeting description"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -143,16 +141,14 @@ export default function Home() {
           <CardContent>
             <DatePicker
               selectedDates={meeting.dates}
-              onChange={(dates) =>
-                setMeeting((meeting) => ({ ...meeting, selectedDates: dates }))
-              }
+              onChange={(dates) => setMeeting({ dates })}
               timezone={timeZone}
             />
           </CardContent>
           <CardFooter>
             <div className="text-sm text-gray-500">
-              {meeting.dates.length} date
-              {meeting.dates.length !== 1 ? "s" : ""} selected
+              {meeting.dates?.length} date
+              {meeting.dates?.length !== 1 ? "s" : ""} selected
             </div>
           </CardFooter>
         </Card>
@@ -187,7 +183,7 @@ export default function Home() {
         {/* Create Button */}
         <Button
           className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 py-6 text-lg"
-          disabled={!name || !meeting.title || meeting.dates.length === 0}
+          disabled={!name || !meeting.title || meeting.dates?.length === 0}
           onClick={handleCreateMeeting}
         >
           Create Meeting

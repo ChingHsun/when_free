@@ -11,19 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Users } from "lucide-react";
 import { useState } from "react";
+import { useMeetingStore } from "@/store/meetingStore";
 
 export interface SignupCardProps {
   meeting: Meeting;
   error: string | undefined;
-  onStartSelection: ({ name }: { name: string }) => void;
+  onSignup: ({ name }: { name: string }) => void;
 }
 
-export const SignupCard = ({
-  meeting,
-  error,
-  onStartSelection,
-}: SignupCardProps) => {
+export const SignupCard = ({ error, onSignup }: SignupCardProps) => {
   const [userName, setUserName] = useState<string | null>(null);
+  const { meeting, participants } = useMeetingStore();
 
   return (
     <Card>
@@ -51,17 +49,17 @@ export const SignupCard = ({
 
         {error && <div className="text-red-500 text-sm">{error}</div>}
 
-        {meeting?.participants && meeting.participants.length > 0 && (
+        {participants && participants.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
               <Users className="h-4 w-4 mr-1.5 text-gray-500" />
-              Existing Participants ({meeting.participants.length}):
+              Existing Participants ({participants.length}):
             </h3>
             <div className="max-h-48 overflow-y-auto pr-2">
               <ul className="space-y-1">
-                {meeting.participants.map((participant) => (
+                {participants.map((participant) => (
                   <li
-                    key={participant.id || participant.name}
+                    key={participant.id}
                     className="text-sm text-gray-600 flex items-center truncate"
                   >
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-2 flex-shrink-0"></div>
@@ -75,7 +73,7 @@ export const SignupCard = ({
       </CardContent>
       <CardFooter className="flex justify-end">
         <Button
-          onClick={() => onStartSelection({ name: userName! })}
+          onClick={() => onSignup({ name: userName! })}
           disabled={!userName?.trim()}
           className="bg-blue-600 hover:bg-blue-700"
         >

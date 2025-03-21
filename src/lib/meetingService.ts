@@ -11,15 +11,12 @@ import {
 import { firestore } from "./firebase";
 import { Meeting, Participant } from "./types";
 
-export async function createMeeting({
+export async function createMeetingService({
   title,
   description,
   dates,
   name,
-}: {
-  title: string;
-  description: string;
-  dates: string[];
+}: Pick<Meeting, "title" | "description" | "dates"> & {
   name: string;
 }) {
   try {
@@ -33,26 +30,31 @@ export async function createMeeting({
     const docRef = await addDoc(collection(firestore, "meetings"), meeting);
     const meetingId = docRef.id;
 
-    await setDoc(doc(firestore, `meetings/${meetingId}/participants`, name), {
+    const participantRef = doc(
+      firestore,
+      `meetings/${meetingId}/participants`,
+      name
+    );
+    await setDoc(participantRef, {
       name,
       availableSlots: [],
       joinedAt: serverTimestamp(),
     });
 
-    return {
-      id: meetingId,
-    };
+    const participantId = participantRef.id;
+
+    return { meetingId, participantId };
   } catch (error) {
     console.error("Error creating meeting:", error);
     throw error;
   }
 }
 
-export async function getMeetingById({
+export async function getMeetingByIdService({
   meetingId,
 }: {
   meetingId: string;
-}): Promise<Meeting> {
+}): Promise<{ meeting: Meeting; participants: Participant[] }> {
   try {
     const meetingRef = doc(firestore, "meetings", meetingId);
     const meetingSnap = await getDoc(meetingRef);
@@ -80,17 +82,16 @@ export async function getMeetingById({
     const meeting = {
       id: meetingSnap.id,
       ...meetingData,
-      participants: participants,
     };
 
-    return meeting;
+    return { meeting, participants };
   } catch (error) {
     console.error("Error getting meeting:", error);
     throw error;
   }
 }
 
-export async function addParticipant({
+export async function addParticipantService({
   meetingId,
   name,
 }: {
@@ -103,27 +104,21 @@ export async function addParticipant({
       `meetings/${meetingId}/participants`,
       name
     );
-    const participantSnapshot = await getDoc(participantRef);
 
-    if (participantSnapshot.exists()) {
-      await updateDoc(participantRef, {
-        lastUpdated: serverTimestamp(),
-      });
-    } else {
-      await setDoc(participantRef, {
-        name,
-        joinedAt: serverTimestamp(),
-      });
-    }
+    await setDoc(participantRef, {
+      name,
+      joinedAt: serverTimestamp(),
+    });
 
-    return name;
+    const participantId = participantRef.id;
+    return { participantId };
   } catch (error) {
     console.error("Error adding/updating participant:", error);
     throw error;
   }
 }
 
-export async function updateParticipantAvailability({
+export async function updateAvailabilityService({
   meetingId,
   name,
   availableSlots,

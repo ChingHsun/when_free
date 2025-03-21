@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,40 +11,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  getMeetingById,
-  addParticipant,
-  updateParticipantAvailability,
-} from "@/lib/meetingService";
 import { TimeGrid } from "@/components/TimeGrid";
 import { AvailabilityTabs } from "@/components/AvailabilityTabs";
 import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
-import { Meeting } from "@/lib/types";
 import { SignupCard, SignupCardProps } from "@/components/SignupCard";
 import { Fallback } from "@/components/Fallback";
-import { findExistParticipant } from "@/lib/utils";
+import { useMeetingStore } from "@/store/meetingStore";
 
 export default function MeetingPage() {
   const params = useParams();
   const router = useRouter();
   const meetingId = params.meetingId as string;
 
+  const {
+    meeting,
+    currentUser,
+    participants,
+    selectedSlots,
+    fetchMeeting,
+    signupMeeting,
+    updateAvailability,
+  } = useMeetingStore();
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [name, setName] = useState<string | null>(null);
-  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<"signup" | "selection">("signup");
   const [activeTab, setActiveTab] = useState<"selection" | "overview">(
     "selection"
   );
 
-  const handleStartSelection: SignupCardProps["onStartSelection"] = ({
-    name,
-  }) => {
-    setName(name);
-    addParticipant({ meetingId, name })
+  const handleSignup: SignupCardProps["onSignup"] = ({ name }) => {
+    signupMeeting({ meetingId, name })
       .then(() => {
         setStep("selection");
       })
@@ -56,14 +54,16 @@ export default function MeetingPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
 
-    updateParticipantAvailability({
+    updateAvailability({
       meetingId,
-      name: name!,
+      name: currentUser!.name,
       availableSlots: selectedSlots,
     })
       .then(() => {
         router.push(
-          `/meetings/${meetingId}/results?name=${encodeURIComponent(name!)}`
+          `/meetings/${meetingId}/results?name=${encodeURIComponent(
+            currentUser!.name
+          )}`
         );
       })
       .catch((err) => {
@@ -77,49 +77,27 @@ export default function MeetingPage() {
 
   useEffect(() => {
     setIsLoading(true);
-    if (meetingId) {
-      getMeetingById({ meetingId })
-        .then((meetingData) => {
-          setMeeting(meetingData);
-          if (name !== null) {
-            return findExistParticipant({ meetingData, name });
-          } else {
-            setStep("signup");
-          }
-        })
-        .then((existingParticipant) => {
-          if (existingParticipant) {
-            setStep("selection");
-            setSelectedSlots(existingParticipant.availableSlots || []);
-          } else {
-            setSelectedSlots([]);
-            setStep("signup");
-          }
-        })
-        .catch((err) => {
-          console.error("Error:", err);
-          setError(err.message);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
-  }, [meetingId, name, step]);
+    fetchMeeting({ meetingId })
+      .then(() => {
+        if (currentUser) {
+          setStep("selection");
+        }
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [currentUser, fetchMeeting, meetingId]);
 
   if (isLoading) return <Fallback status="loading" />;
 
-  if (error || !meeting)
+  if (error || !meeting || !participants)
     return <Fallback status="error" errorMessage={error} />;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         {step === "signup" ? (
-          <SignupCard
-            meeting={meeting}
-            error={error}
-            onStartSelection={handleStartSelection}
-          />
+          <SignupCard meeting={meeting} error={error} onSignup={handleSignup} />
         ) : (
           <>
             <Card className="mb-6">
@@ -131,7 +109,7 @@ export default function MeetingPage() {
               </CardHeader>
               <CardContent>
                 <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md">
-                  <p className="font-medium">Welcome, {name}!</p>
+                  <p className="font-medium">Welcome, {currentUser?.name}!</p>
                   <p className="text-sm mt-1">
                     You can modify your time selections.
                   </p>
@@ -155,7 +133,7 @@ export default function MeetingPage() {
               <AvailabilityTabs
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
-                participantsCount={meeting.participants.length}
+                participantsCount={participants.length}
               />
 
               {activeTab === "selection" ? (
@@ -169,11 +147,7 @@ export default function MeetingPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <TimeGrid
-                      dates={meeting.dates || []}
-                      selectedSlots={selectedSlots}
-                      setSelectedSlots={setSelectedSlots}
-                    />
+                    <TimeGrid />
                   </CardContent>
                 </Card>
               ) : (
@@ -189,26 +163,18 @@ export default function MeetingPage() {
                   <CardContent className="p-0">
                     <GroupAvailabilityGrid
                       dates={meeting.dates || []}
-                      participants={meeting.participants}
+                      participants={participants}
                     />
                   </CardContent>
-                  {meeting.participants.length === 0 && (
-                    <div className="p-8 text-center">
-                      <p className="text-gray-500">
-                        No participants have joined yet.
-                      </p>
-                      <p className="text-gray-500 mt-1">
-                        Be the first to add your availability!
-                      </p>
-                    </div>
-                  )}
                 </Card>
               )}
             </div>
 
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || selectedSlots.length === 0}
+              disabled={
+                isSubmitting || currentUser?.availableSlots?.length === 0
+              }
               className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-lg"
             >
               {isSubmitting ? (

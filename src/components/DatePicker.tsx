@@ -8,9 +8,10 @@ import {
 } from "date-fns";
 import { utcToZonedTime } from "date-fns-tz";
 import { WEEK_DAYS } from "@/lib/constants";
+import { Meeting } from "@/lib/types";
 
 interface DatePickerProps {
-  selectedDates: string[];
+  selectedDates: Meeting["dates"];
   onChange: (dates: string[]) => void;
   timezone: string;
 }
@@ -68,7 +69,7 @@ export function DatePicker({
           {monthDates.map((date) => {
             const isPast = date < todayInTimezone;
 
-            const isSelected = selectedDates.some((isoStr) => {
+            const isSelected = selectedDates?.some((isoStr) => {
               const dateObj = parseISO(isoStr);
               return isSameDay(dateObj, date);
             });

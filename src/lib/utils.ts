@@ -30,16 +30,16 @@ export const generateTimeSlots = () => {
 };
 
 export async function findExistParticipant({
-  meetingData,
+  meeting,
   name,
 }: {
-  meetingData: Meeting;
+  meeting: Meeting;
   name: string;
 }) {
   try {
-    const allParticipants = meetingData.participants;
+    const allParticipants = meeting.participants;
 
-    const existingParticipant = allParticipants.find(
+    const existingParticipant = allParticipants?.find(
       (p) => p.name.toLowerCase() === name.toLowerCase()
     );
 

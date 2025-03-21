@@ -1,21 +1,13 @@
-import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { useState, useEffect } from "react";
 import { parseISO, differenceInDays } from "date-fns";
 import { generateTimeSlots } from "@/lib/utils";
+import { useMeetingStore } from "@/store/meetingStore";
 
-interface TimeGridProps {
-  dates: string[];
-  selectedSlots: string[];
-  setSelectedSlots: Dispatch<SetStateAction<string[]>>;
-}
-
-export function TimeGrid({
-  dates,
-  selectedSlots,
-  setSelectedSlots,
-}: TimeGridProps) {
+export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
-  const [isSelect, setIsSelect] = useState(true);
   const { timeSlots, formatTime, formatDate } = generateTimeSlots();
+  const { meeting, selectedSlots, toggleSlot } = useMeetingStore();
+  const dates = meeting.dates || [];
 
   // Check if dates are consecutive and add spacing if needed
   const areDatesConsecutive = (date1: string, date2: string) => {
@@ -26,9 +18,6 @@ export function TimeGrid({
 
   const handleMouseDown = (slotId: string) => {
     setIsDragging(true);
-    const isSlotSelected = selectedSlots.includes(slotId);
-    setIsSelect(!isSlotSelected);
-
     updateSlotSelection(slotId);
   };
 
@@ -43,11 +32,8 @@ export function TimeGrid({
   );
 
   const updateSlotSelection = (slotId: string) => {
-    if (isSelect && !selectedSlots.includes(slotId)) {
-      setSelectedSlots((prev) => [...prev, slotId]);
-    } else if (!isSelect && selectedSlots.includes(slotId)) {
-      setSelectedSlots((prev) => prev.filter((id) => id !== slotId));
-    }
+    const isSelect = selectedSlots.includes(slotId);
+    toggleSlot({ isSelect, slotId });
   };
 
   useEffect(() => {
