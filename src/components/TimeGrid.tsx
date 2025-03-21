@@ -1,41 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { format, parseISO, differenceInDays } from "date-fns";
+import React, { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { parseISO, differenceInDays } from "date-fns";
+import { generateTimeSlots } from "@/lib/utils";
 
 interface TimeGridProps {
   dates: string[];
   selectedSlots: string[];
-  onSlotToggle: (slotId: string) => void;
-  onMouseDown: (slotId: string) => void;
-  onMouseEnter: (slotId: string) => void;
+  setSelectedSlots: Dispatch<SetStateAction<string[]>>;
 }
 
 export function TimeGrid({
   dates,
   selectedSlots,
-  onSlotToggle,
-  onMouseDown,
-  onMouseEnter,
+  setSelectedSlots,
 }: TimeGridProps) {
-  // Generate time slots for 24 hours in 30-minute increments (from 0:00 to 23:30)
-  const timeSlots = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (const minute of [0, 30]) {
-      timeSlots.push({ hour, minute });
-    }
-  }
-
-  // Format time for display (24-hour format)
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, "0")}:${minute
-      .toString()
-      .padStart(2, "0")}`;
-  };
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return format(date, "EEE, MMM d");
-  };
+  const [isDragging, setIsDragging] = useState(false);
+  const [isSelect, setIsSelect] = useState(true);
+  const { timeSlots, formatTime, formatDate } = generateTimeSlots();
 
   // Check if dates are consecutive and add spacing if needed
   const areDatesConsecutive = (date1: string, date2: string) => {
@@ -44,54 +24,53 @@ export function TimeGrid({
     return differenceInDays(d2, d1) === 1;
   };
 
-  // Add global prevention of text selection during drag
-  const [isDragging, setIsDragging] = useState(false);
-
-  useEffect(() => {
-    // Disable text selection globally when dragging
-    if (isDragging) {
-      document.body.classList.add("select-none");
-    } else {
-      document.body.classList.remove("select-none");
-    }
-
-    // Clean up when component unmounts
-    return () => {
-      document.body.classList.remove("select-none");
-    };
-  }, [isDragging]);
-
-  // Override mouse down/up handlers to manage dragging state
   const handleMouseDown = (slotId: string) => {
     setIsDragging(true);
-    onMouseDown(slotId);
+    const isSlotSelected = selectedSlots.includes(slotId);
+    setIsSelect(!isSlotSelected);
+
+    updateSlotSelection(slotId);
   };
 
-  const handleGlobalMouseUp = () => {
-    setIsDragging(false);
+  const handleMouseEnter = (slotId: string) => {
+    if (isDragging) {
+      updateSlotSelection(slotId);
+    }
   };
 
-  useEffect(() => {
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => {
-      window.removeEventListener("mouseup", handleGlobalMouseUp);
-    };
-  }, []);
-
-  // Sort dates chronologically
   const sortedDates = [...dates].sort(
     (a, b) => new Date(a).getTime() - new Date(b).getTime()
   );
 
+  const updateSlotSelection = (slotId: string) => {
+    if (isSelect && !selectedSlots.includes(slotId)) {
+      setSelectedSlots((prev) => [...prev, slotId]);
+    } else if (!isSelect && selectedSlots.includes(slotId)) {
+      setSelectedSlots((prev) => prev.filter((id) => id !== slotId));
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, []);
+
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse">
+      <table className="min-w-full border-collapse select-none">
         <thead>
           <tr>
             {/* Empty corner cell */}
             <th className="border p-2 bg-gray-100"></th>
 
-            {/* Date headers with spacing for non-consecutive dates */}
             {sortedDates.map((date, index) => {
               // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
@@ -146,7 +125,7 @@ export function TimeGrid({
                         }
                       `}
                       onMouseDown={() => handleMouseDown(slotId)}
-                      onMouseEnter={() => onMouseEnter(slotId)}
+                      onMouseEnter={() => handleMouseEnter(slotId)}
                     ></div>
                   </td>
                 );

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { Check, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,67 +92,6 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
-  // Toggle a single time slot
-  const toggleTimeSlot = (slotId: string) => {
-    setSelectedSlots((prev) => {
-      if (prev.includes(slotId)) {
-        return prev.filter((id) => id !== slotId);
-      } else {
-        return [...prev, slotId];
-      }
-    });
-  };
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return format(date, "EEEE, MMMM d, yyyy");
-  };
-
-  // Handle drag selection of time slots
-  const [isDragging, setIsDragging] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<"select" | "deselect">(
-    "select"
-  );
-
-  const handleMouseDown = (slotId: string) => {
-    setIsDragging(true);
-    // If the slot is already selected, we're in deselect mode
-    const isSlotSelected = selectedSlots.includes(slotId);
-    setSelectionMode(isSlotSelected ? "deselect" : "select");
-
-    // Toggle the initial slot
-    updateSlotSelection(slotId);
-  };
-
-  const handleMouseEnter = (slotId: string) => {
-    if (isDragging) {
-      updateSlotSelection(slotId);
-    }
-  };
-
-  const updateSlotSelection = (slotId: string) => {
-    if (selectionMode === "select" && !selectedSlots.includes(slotId)) {
-      setSelectedSlots((prev) => [...prev, slotId]);
-    } else if (selectionMode === "deselect" && selectedSlots.includes(slotId)) {
-      setSelectedSlots((prev) => prev.filter((id) => id !== slotId));
-    }
-  };
-
-  // Add global mouse up handler
-  useEffect(() => {
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, []);
-
   // Start time selection process
   const handleStartSelection = () => {
     if (!participantName.trim()) {
@@ -208,7 +146,7 @@ export default function MeetingPage() {
     );
   }
 
-  if (error && !meeting) {
+  if (error || !meeting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -233,10 +171,10 @@ export default function MeetingPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {meeting?.title || "Select Your Availability"}
+                {meeting.title || "Select Your Availability"}
               </CardTitle>
               <CardDescription>
-                {meeting?.description || "Please enter your name to continue"}
+                {meeting.description || "Please enter your name to continue"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -278,7 +216,7 @@ export default function MeetingPage() {
 
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>{meeting?.title}</CardTitle>
+                <CardTitle>{meeting.title}</CardTitle>
                 <CardDescription>
                   Select your available time slots by clicking or dragging
                 </CardDescription>
@@ -318,11 +256,9 @@ export default function MeetingPage() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <TimeGrid
-                      dates={meeting?.dates || []}
+                      dates={meeting.dates || []}
                       selectedSlots={selectedSlots}
-                      onSlotToggle={toggleTimeSlot}
-                      onMouseDown={handleMouseDown}
-                      onMouseEnter={handleMouseEnter}
+                      setSelectedSlots={setSelectedSlots}
                     />
                   </CardContent>
                 </Card>
@@ -338,7 +274,7 @@ export default function MeetingPage() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <GroupAvailabilityGrid
-                      dates={meeting?.dates || []}
+                      dates={meeting.dates || []}
                       participants={participants}
                     />
                   </CardContent>
