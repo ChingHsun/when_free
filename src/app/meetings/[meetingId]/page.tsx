@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Check, ArrowLeft, ArrowRight } from "lucide-react";
+import { Check, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   getMeetingById,
   addParticipant,
@@ -22,6 +21,7 @@ import { TimeGrid } from "@/components/TimeGrid";
 import { AvailabilityTabs } from "@/components/AvailabilityTabs";
 import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
 import { Meeting, Participant } from "@/lib/types";
+import { SignupCard, SignupCardProps } from "@/components/SignupCard";
 
 export default function MeetingPage() {
   const params = useParams();
@@ -31,11 +31,11 @@ export default function MeetingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [participantName, setParticipantName] = useState("");
+  const [participantName, setParticipantName] = useState<string | null>(null);
   const [timezone, setTimezone] = useState("");
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState<"info" | "selection">("info");
+  const [step, setStep] = useState<"signup" | "selection">("signup");
   const [activeTab, setActiveTab] = useState<"selection" | "overview">(
     "selection"
   );
@@ -93,13 +93,13 @@ export default function MeetingPage() {
   }, [meetingId]);
 
   // Start time selection process
-  const handleStartSelection = () => {
-    if (!participantName.trim()) {
+  const handleStartSelection: SignupCardProps["onStartSelection"] = ({
+    name,
+  }) => {
+    setParticipantName(name);
+    if (!name?.trim()) {
       setError("Please enter your name");
-      return;
     }
-
-    setError(null);
     setStep("selection");
   };
 
@@ -167,48 +167,18 @@ export default function MeetingPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
-        {step === "info" ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {meeting.title || "Select Your Availability"}
-              </CardTitle>
-              <CardDescription>
-                {meeting.description || "Please enter your name to continue"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Name
-                </label>
-                <Input
-                  value={participantName}
-                  onChange={(e) => setParticipantName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full"
-                />
-              </div>
-
-              {error && <div className="text-red-500 text-sm">{error}</div>}
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button
-                onClick={handleStartSelection}
-                disabled={!participantName.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Continue
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
+        {step === "signup" ? (
+          <SignupCard
+            meeting={meeting}
+            error={error}
+            onStartSelection={handleStartSelection}
+          />
         ) : (
           <>
             <Button
               variant="ghost"
               className="mb-4"
-              onClick={() => setStep("info")}
+              onClick={() => setStep("signup")}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
