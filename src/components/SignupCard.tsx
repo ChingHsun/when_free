@@ -14,7 +14,7 @@ import { useState } from "react";
 
 export interface SignupCardProps {
   meeting: Meeting;
-  error: string | null;
+  error: string | undefined;
   onStartSelection: ({ name }: { name: string | null }) => void;
 }
 

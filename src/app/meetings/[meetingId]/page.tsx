@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -22,6 +21,7 @@ import { AvailabilityTabs } from "@/components/AvailabilityTabs";
 import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
 import { Meeting, Participant } from "@/lib/types";
 import { SignupCard, SignupCardProps } from "@/components/SignupCard";
+import { Fallback } from "@/components/Fallback";
 
 export default function MeetingPage() {
   const params = useParams();
@@ -29,7 +29,7 @@ export default function MeetingPage() {
   const meetingId = params.meetingId as string;
 
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [participantName, setParticipantName] = useState<string | null>(null);
   const [timezone, setTimezone] = useState("");
@@ -40,6 +40,49 @@ export default function MeetingPage() {
     "selection"
   );
   const [participants, setParticipants] = useState<Participant[]>([]);
+
+  // Start time selection process
+  const handleStartSelection: SignupCardProps["onStartSelection"] = ({
+    name,
+  }) => {
+    setParticipantName(name);
+    if (!name?.trim()) {
+      setError("Please enter your name");
+    }
+    setStep("selection");
+  };
+
+  // Submit availability
+  const handleSubmit = async () => {
+    if (selectedSlots.length === 0) {
+      setError("Please select at least one time slot");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      // Add or update participant
+      await addParticipant(meetingId, participantName, timezone, selectedSlots);
+
+      // Navigate to results page
+      router.push(
+        `/meetings/${meetingId}/results?name=${encodeURIComponent(
+          participantName
+        )}`
+      );
+    } catch (err: any) {
+      console.error("Error submitting availability:", err);
+
+      if (err.message?.includes("already exists")) {
+        setError("This name is already taken. Please choose another name.");
+      } else {
+        setError("Failed to submit your availability");
+      }
+
+      setIsSubmitting(false);
+    }
+  };
 
   // Initialize timezone from browser
   useEffect(() => {
@@ -92,77 +135,10 @@ export default function MeetingPage() {
     }
   }, [meetingId]);
 
-  // Start time selection process
-  const handleStartSelection: SignupCardProps["onStartSelection"] = ({
-    name,
-  }) => {
-    setParticipantName(name);
-    if (!name?.trim()) {
-      setError("Please enter your name");
-    }
-    setStep("selection");
-  };
+  if (isLoading) return <Fallback status="loading" />;
 
-  // Submit availability
-  const handleSubmit = async () => {
-    if (selectedSlots.length === 0) {
-      setError("Please select at least one time slot");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      // Add or update participant
-      await addParticipant(meetingId, participantName, timezone, selectedSlots);
-
-      // Navigate to results page
-      router.push(
-        `/meetings/${meetingId}/results?name=${encodeURIComponent(
-          participantName
-        )}`
-      );
-    } catch (err: any) {
-      console.error("Error submitting availability:", err);
-
-      if (err.message?.includes("already exists")) {
-        setError("This name is already taken. Please choose another name.");
-      } else {
-        setError("Failed to submit your availability");
-      }
-
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !meeting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-red-600">Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>{error}</p>
-          </CardContent>
-          <CardFooter>
-            <Button onClick={() => router.push("/")}>Go Home</Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
+  if (error || !meeting)
+    return <Fallback status="error" errorMessage={error} />;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
