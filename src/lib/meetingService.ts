@@ -7,9 +7,9 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  Timestamp,
 } from "firebase/firestore";
 import { firestore } from "./firebase";
+import { Meeting, Participant } from "./types";
 
 export async function createMeeting({
   title,
@@ -48,38 +48,56 @@ export async function createMeeting({
   }
 }
 
-// 通過 ID 獲取會議
-export async function getMeetingById(id: string) {
+export async function getMeetingById({
+  meetingId,
+}: {
+  meetingId: string;
+}): Promise<Meeting> {
   try {
-    const docRef = doc(firestore, "meetings", id);
-    const docSnap = await getDoc(docRef);
+    const meetingRef = doc(firestore, "meetings", meetingId);
+    const meetingSnap = await getDoc(meetingRef);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        id: docSnap.id,
-        ...data,
-        createdAt:
-          data.createdAt instanceof Timestamp
-            ? data.createdAt.toDate()
-            : new Date(data.createdAt || Date.now()),
-      };
-    } else {
-      return null;
+    if (!meetingSnap.exists()) {
+      throw new Error("Meeting not found");
     }
+
+    const participantsRef = collection(
+      firestore,
+      `meetings/${meetingId}/participants`
+    );
+    const participantsSnap = await getDocs(participantsRef);
+
+    const participants: Participant[] = participantsSnap.docs.map((doc) => {
+      const data = doc.data() as Omit<Participant, "id">;
+      return {
+        id: doc.id,
+        ...data,
+      };
+    });
+
+    const meetingData = meetingSnap.data() as Omit<Meeting, "id">;
+
+    const meeting = {
+      id: meetingSnap.id,
+      ...meetingData,
+      participants: participants,
+    };
+
+    return meeting;
   } catch (error) {
     console.error("Error getting meeting:", error);
     throw error;
   }
 }
 
-export async function addParticipant(
-  meetingId: string,
-  name: string,
-  availableSlots: string[]
-) {
+export async function addParticipant({
+  meetingId,
+  name,
+}: {
+  meetingId: string;
+  name: string;
+}) {
   try {
-    // 檢查參與者是否已存在
     const participantRef = doc(
       firestore,
       `meetings/${meetingId}/participants`,
@@ -89,14 +107,11 @@ export async function addParticipant(
 
     if (participantSnapshot.exists()) {
       await updateDoc(participantRef, {
-        availableSlots,
         lastUpdated: serverTimestamp(),
       });
     } else {
-      // 創建新參與者
       await setDoc(participantRef, {
         name,
-        availableSlots,
         joinedAt: serverTimestamp(),
       });
     }
@@ -108,17 +123,20 @@ export async function addParticipant(
   }
 }
 
-// 更新參與者可用時間
-export async function updateParticipantAvailability(
-  meetingId: string,
-  participantName: string,
-  availableSlots: string[]
-) {
+export async function updateParticipantAvailability({
+  meetingId,
+  name,
+  availableSlots,
+}: {
+  meetingId: string;
+  name: string;
+  availableSlots: string[];
+}) {
   try {
     const participantRef = doc(
       firestore,
       `meetings/${meetingId}/participants`,
-      participantName
+      name
     );
 
     await updateDoc(participantRef, {
@@ -126,14 +144,13 @@ export async function updateParticipantAvailability(
       lastUpdated: serverTimestamp(),
     });
 
-    return true;
+    return;
   } catch (error) {
     console.error("Error updating participant availability:", error);
     throw error;
   }
 }
 
-// 獲取所有參與者
 export async function getParticipants(meetingId: string) {
   try {
     const participantsRef = collection(
@@ -143,14 +160,10 @@ export async function getParticipants(meetingId: string) {
     const querySnapshot = await getDocs(participantsRef);
 
     const participants = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
+      const data = doc.data() as Omit<Participant, "id">;
       return {
-        name: doc.id,
+        id: doc.id,
         ...data,
-        joinedAt:
-          data.joinedAt instanceof Timestamp
-            ? data.joinedAt.toDate()
-            : new Date(data.joinedAt || Date.now()),
       };
     });
 
@@ -209,15 +222,12 @@ export async function getOverlappingSlots(meetingId: string) {
 }
 
 // 刪除參與者
-export async function deleteParticipant(
-  meetingId: string,
-  participantName: string
-) {
+export async function deleteParticipant(meetingId: string, name: string) {
   try {
     const participantRef = doc(
       firestore,
       `meetings/${meetingId}/participants`,
-      participantName
+      name
     );
     await participantRef.delete();
     return true;

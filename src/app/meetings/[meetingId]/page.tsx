@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Check, ArrowLeft } from "lucide-react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,14 +14,15 @@ import {
 import {
   getMeetingById,
   addParticipant,
-  getParticipants,
+  updateParticipantAvailability,
 } from "@/lib/meetingService";
 import { TimeGrid } from "@/components/TimeGrid";
 import { AvailabilityTabs } from "@/components/AvailabilityTabs";
 import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
-import { Meeting, Participant } from "@/lib/types";
+import { Meeting } from "@/lib/types";
 import { SignupCard, SignupCardProps } from "@/components/SignupCard";
 import { Fallback } from "@/components/Fallback";
+import { findExistParticipant } from "@/lib/utils";
 
 export default function MeetingPage() {
   const params = useParams();
@@ -31,109 +32,79 @@ export default function MeetingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [participantName, setParticipantName] = useState<string | null>(null);
-  const [timezone, setTimezone] = useState("");
+  const [name, setName] = useState<string | null>(null);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<"signup" | "selection">("signup");
   const [activeTab, setActiveTab] = useState<"selection" | "overview">(
     "selection"
   );
-  const [participants, setParticipants] = useState<Participant[]>([]);
 
-  // Start time selection process
   const handleStartSelection: SignupCardProps["onStartSelection"] = ({
     name,
   }) => {
-    setParticipantName(name);
-    if (!name?.trim()) {
-      setError("Please enter your name");
-    }
-    setStep("selection");
+    setName(name);
+    addParticipant({ meetingId, name })
+      .then(() => {
+        setStep("selection");
+      })
+      .catch((err) => {
+        setError(err);
+      });
   };
 
-  // Submit availability
   const handleSubmit = async () => {
-    if (selectedSlots.length === 0) {
-      setError("Please select at least one time slot");
-      return;
-    }
+    setIsSubmitting(true);
 
-    try {
-      setIsSubmitting(true);
-
-      // Add or update participant
-      await addParticipant(meetingId, participantName, timezone, selectedSlots);
-
-      // Navigate to results page
-      router.push(
-        `/meetings/${meetingId}/results?name=${encodeURIComponent(
-          participantName
-        )}`
-      );
-    } catch (err: any) {
-      console.error("Error submitting availability:", err);
-
-      if (err.message?.includes("already exists")) {
-        setError("This name is already taken. Please choose another name.");
-      } else {
+    updateParticipantAvailability({
+      meetingId,
+      name: name!,
+      availableSlots: selectedSlots,
+    })
+      .then(() => {
+        router.push(
+          `/meetings/${meetingId}/results?name=${encodeURIComponent(name!)}`
+        );
+      })
+      .catch((err) => {
+        console.error("Error submitting availability:", err);
         setError("Failed to submit your availability");
-      }
-
-      setIsSubmitting(false);
-    }
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   };
 
-  // Initialize timezone from browser
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const storedTimezone = sessionStorage.getItem("user-timezone");
-        if (storedTimezone) {
-          setTimezone(storedTimezone);
-        } else {
-          const browserTimezone =
-            Intl.DateTimeFormat().resolvedOptions().timeZone;
-          setTimezone(browserTimezone);
-          sessionStorage.setItem("user-timezone", browserTimezone);
-        }
-      } catch (error) {
-        console.error("Error accessing sessionStorage:", error);
-        const browserTimezone =
-          Intl.DateTimeFormat().resolvedOptions().timeZone;
-        setTimezone(browserTimezone);
-      }
-    }
-  }, []);
-
-  // Fetch meeting data
-  useEffect(() => {
-    async function loadMeeting() {
-      try {
-        setIsLoading(true);
-        const meetingData = await getMeetingById(meetingId);
-        if (!meetingData) {
-          setError("Meeting not found");
-          return;
-        }
-
-        setMeeting(meetingData);
-
-        // Also load participants
-        const participantsData = await getParticipants(meetingId);
-        setParticipants(participantsData);
-      } catch (err) {
-        console.error("Error loading meeting:", err);
-        setError("Failed to load meeting");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
+    setIsLoading(true);
     if (meetingId) {
-      loadMeeting();
+      getMeetingById({ meetingId })
+        .then((meetingData) => {
+          setMeeting(meetingData);
+          if (name !== null) {
+            return findExistParticipant({ meetingData, name });
+          } else {
+            setStep("signup");
+          }
+        })
+        .then((existingParticipant) => {
+          if (existingParticipant) {
+            setStep("selection");
+            setSelectedSlots(existingParticipant.availableSlots || []);
+          } else {
+            setSelectedSlots([]);
+            setStep("signup");
+          }
+        })
+        .catch((err) => {
+          console.error("Error:", err);
+          setError(err.message);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
     }
-  }, [meetingId]);
+  }, [meetingId, name, step]);
 
   if (isLoading) return <Fallback status="loading" />;
 
@@ -142,7 +113,7 @@ export default function MeetingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4">
         {step === "signup" ? (
           <SignupCard
             meeting={meeting}
@@ -151,15 +122,6 @@ export default function MeetingPage() {
           />
         ) : (
           <>
-            <Button
-              variant="ghost"
-              className="mb-4"
-              onClick={() => setStep("signup")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>{meeting.title}</CardTitle>
@@ -168,6 +130,12 @@ export default function MeetingPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md">
+                  <p className="font-medium">Welcome, {name}!</p>
+                  <p className="text-sm mt-1">
+                    You can modify your time selections.
+                  </p>
+                </div>
                 <div className="text-sm mb-4">
                   <p className="font-medium">Instructions:</p>
                   <ul className="list-disc pl-5 mt-1 space-y-1">
@@ -187,7 +155,7 @@ export default function MeetingPage() {
               <AvailabilityTabs
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
-                participantsCount={participants.length}
+                participantsCount={meeting.participants.length}
               />
 
               {activeTab === "selection" ? (
@@ -221,10 +189,10 @@ export default function MeetingPage() {
                   <CardContent className="p-0">
                     <GroupAvailabilityGrid
                       dates={meeting.dates || []}
-                      participants={participants}
+                      participants={meeting.participants}
                     />
                   </CardContent>
-                  {participants.length === 0 && (
+                  {meeting.participants.length === 0 && (
                     <div className="p-8 text-center">
                       <p className="text-gray-500">
                         No participants have joined yet.

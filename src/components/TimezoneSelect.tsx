@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Globe, Search } from "lucide-react";
-import { TIMEZONE_STORAGE_KEY } from "@/lib/constants";
 
 interface TimezoneSelectProps {
   value: string;
@@ -61,7 +60,6 @@ export function TimezoneSelect({ value, onChange }: TimezoneSelectProps) {
                 }`}
                 onClick={() => {
                   onChange(timezone);
-                  sessionStorage.setItem(TIMEZONE_STORAGE_KEY, timezone);
                   setIsOpen(false);
                 }}
               >

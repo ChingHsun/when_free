@@ -35,7 +35,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const meetingId = params.meetingId as string;
-  const participantName = searchParams.get("name");
+  const name = searchParams.get("name");
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,9 +255,9 @@ export default function ResultsPage() {
               </Button>
             </div>
 
-            {participantName && (
+            {name && (
               <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md">
-                <p className="font-medium">You joined as: {participantName}</p>
+                <p className="font-medium">You joined as: {name}</p>
                 <p className="text-sm mt-1">
                   You can update your availability by joining again with the
                   same name.
@@ -278,7 +278,7 @@ export default function ResultsPage() {
                 <div
                   key={participant.name}
                   className={`p-3 rounded-md border ${
-                    participantName === participant.name
+                    name === participant.name
                       ? "border-blue-300 bg-blue-50"
                       : "border-gray-200"
                   }`}

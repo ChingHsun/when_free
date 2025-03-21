@@ -17,6 +17,7 @@ interface FallbackProps {
 export const Fallback = ({ status, errorMessage }: FallbackProps) => {
   const router = useRouter();
 
+
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -27,18 +28,20 @@ export const Fallback = ({ status, errorMessage }: FallbackProps) => {
       </div>
     );
   } else {
-    <div className="min-h-screen flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-red-600">Error</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>{errorMessage ? errorMessage : "Something went wrong"}</p>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={() => router.push("/")}>Go Home</Button>
-        </CardFooter>
-      </Card>
-    </div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600">Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{errorMessage ? errorMessage : "Something went wrong"}</p>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={() => router.push("/")}>Go Home</Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
   }
 };

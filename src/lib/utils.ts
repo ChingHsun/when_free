@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { format, parseISO } from "date-fns";
+import { Meeting } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,3 +28,24 @@ export const generateTimeSlots = () => {
 
   return { timeSlots, formatTime, formatDate };
 };
+
+export async function findExistParticipant({
+  meetingData,
+  name,
+}: {
+  meetingData: Meeting;
+  name: string;
+}) {
+  try {
+    const allParticipants = meetingData.participants;
+
+    const existingParticipant = allParticipants.find(
+      (p) => p.name.toLowerCase() === name.toLowerCase()
+    );
+
+    return existingParticipant || null;
+  } catch (error) {
+    console.error("Error checking if participant exists:", error);
+    return null;
+  }
+}

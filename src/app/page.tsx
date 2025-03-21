@@ -1,22 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Clock, Users, ArrowRight } from "lucide-react";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { createMeeting } from "@/lib/meetingService";
-import { NAME_STORAGE_KEY, TIMEZONE_STORAGE_KEY } from "@/lib/constants";
 import { Meeting } from "@/lib/types";
 
 export default function Home() {
@@ -38,7 +38,6 @@ export default function Home() {
     event: React.MouseEvent<HTMLButtonElement>
   ) => {
     event.preventDefault();
-    sessionStorage.setItem(NAME_STORAGE_KEY, name);
 
     try {
       const { id } = await createMeeting({
@@ -54,22 +53,6 @@ export default function Home() {
     }
     alert("Meeting created! You would be redirected to share the link.");
   };
-
-  useEffect(() => {
-    const storedTimezone = sessionStorage.getItem(TIMEZONE_STORAGE_KEY);
-    if (storedTimezone) {
-      setTimeZone(storedTimezone);
-    } else {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      setTimeZone(browserTimezone);
-      sessionStorage.setItem("user-timezone", browserTimezone);
-    }
-
-    const storedName = sessionStorage.getItem(NAME_STORAGE_KEY);
-    if (storedName) {
-      setName(storedName);
-    }
-  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
