@@ -1,29 +1,25 @@
 import { useState, useEffect } from "react";
 import { Globe, Search } from "lucide-react";
+import { ALL_TIME_ZONES } from "@/lib/constants";
+import { useMeetingStore } from "@/store/meetingStore";
 
-interface TimezoneSelectProps {
-  value: string;
-  onChange: (timezone: string) => void;
-}
-
-export function TimezoneSelect({ value, onChange }: TimezoneSelectProps) {
+export function TimezoneSelect() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [timezones] = useState<string[]>(() =>
-    Intl.supportedValuesOf("timeZone")
-  );
-  const [filteredTimezones, setFilteredTimezones] = useState<string[]>([]);
+  const [filteredTimezones, setFilteredTimezones] =
+    useState<string[]>(ALL_TIME_ZONES);
 
+  const { userTimezone, setUserTimezone } = useMeetingStore();
   useEffect(() => {
     if (searchTerm.trim() === "") {
-      setFilteredTimezones(timezones);
+      setFilteredTimezones(ALL_TIME_ZONES);
     } else {
-      const filtered = timezones.filter((tz) =>
+      const filtered = ALL_TIME_ZONES.filter((tz) =>
         tz.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredTimezones(filtered);
     }
-  }, [searchTerm, timezones]);
+  }, [searchTerm]);
 
   return (
     <div className="relative">
@@ -33,7 +29,7 @@ export function TimezoneSelect({ value, onChange }: TimezoneSelectProps) {
       >
         <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
         <div className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-800">
-          {value}
+          {userTimezone}
         </div>
       </div>
 
@@ -56,10 +52,10 @@ export function TimezoneSelect({ value, onChange }: TimezoneSelectProps) {
               <div
                 key={timezone}
                 className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                  value === timezone ? "bg-blue-50 text-blue-700" : ""
+                  userTimezone === timezone ? "bg-blue-50 text-blue-700" : ""
                 }`}
                 onClick={() => {
-                  onChange(timezone);
+                  setUserTimezone(timezone);
                   setIsOpen(false);
                 }}
               >
