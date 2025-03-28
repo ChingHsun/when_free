@@ -7,6 +7,7 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
+	Timestamp,
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { Meeting, Participant } from "./types";
@@ -23,7 +24,7 @@ export async function createMeetingService({
     const meeting = {
       title,
       description,
-      dates,
+      dates: dates?.map((({startTime, endTime}) =>  ({startTime: Timestamp.fromDate(startTime), endTime: Timestamp.fromDate(endTime)}))),
       createdAt: serverTimestamp(),
     };
 

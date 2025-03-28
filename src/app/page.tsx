@@ -18,13 +18,16 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { useMeetingStore } from "@/store/meetingStore";
 import { Fallback } from "@/components/Fallback";
+import { endOfDay, format, parse, parseISO, startOfDay } from "date-fns";
+import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
+import { Timestamp } from "firebase/firestore";
 
 export default function Home() {
   const router = useRouter();
 
-  const { meeting, setMeeting, createMeeting } = useMeetingStore();
+  const { meeting, userTimezone, selectedDates, setMeeting, createMeeting } =
+    useMeetingStore();
   const [name, setName] = useState<string>("");
-  const [timeZone, setTimeZone] = useState<string>("");
   const [error, setError] = useState<string | undefined>();
 
   const handleCreateMeeting = async (
@@ -36,11 +39,9 @@ export default function Home() {
       createMeeting({
         title: meeting.title,
         description: meeting.description,
-        dates: meeting.dates,
         name: name,
       })
         .then((meetingId) => {
-          alert("Meeting created! You would be redirected to share the link.");
           router.push(`/meetings/${meetingId}`);
         })
         .catch((err) => {
@@ -85,10 +86,7 @@ export default function Home() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Your Timezone
                   </label>
-                  <TimezoneSelect
-                    value={timeZone}
-                    onChange={(timezone) => setTimeZone(timezone)}
-                  />
+                  <TimezoneSelect />
                 </div>
               </div>
             </div>
@@ -135,19 +133,15 @@ export default function Home() {
           <CardHeader>
             <CardTitle className="text-2xl">Select Available Dates</CardTitle>
             <CardDescription>
-              Choose multiple dates for your meeting
+              All dates are shown in your timezone ({userTimezone})
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DatePicker
-              selectedDates={meeting.dates}
-              onChange={(dates) => setMeeting({ dates })}
-              timezone={timeZone}
-            />
+            <DatePicker />
           </CardContent>
           <CardFooter>
             <div className="text-sm text-gray-500">
-              {meeting.dates?.length} date
+              {selectedDates?.length} date
               {meeting.dates?.length !== 1 ? "s" : ""} selected
             </div>
           </CardFooter>

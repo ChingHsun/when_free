@@ -6,16 +6,20 @@ import {
   getMeetingByIdService,
   updateAvailabilityService,
 } from "@/lib/meetingService";
+import { zonedTimeToUtc } from "date-fns-tz";
 
 interface MeetingState {
   meeting: Meeting;
+  selectedDates: string[];
   participants: Participant[] | null;
   currentUser: Participant | null;
   selectedSlots: string[];
+  userTimezone: string;
 
   setMeeting: (value: Partial<Meeting>) => void;
+  setUserTimezone: (timezone: string) => void;
   createMeeting: (
-    data: Pick<Meeting, "title" | "description" | "dates"> & {
+    data: Pick<Meeting, "title" | "description"> & {
       name: string;
     }
   ) => Promise<string>;
@@ -27,29 +31,41 @@ interface MeetingState {
     availableSlots: string[];
   }) => Promise<void>;
   toggleSlot: (data: { slotId: string; isSelect: boolean }) => void;
+  toggleDate: (data: { date: string; isSelect: boolean }) => void;
 }
 
 export const useMeetingStore = create<MeetingState>((set, get) => ({
   meeting: { id: null, title: null, description: null, dates: null },
+  selectedDates: [],
   participants: null,
   currentUser: null,
   selectedSlots: [],
+  userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 
   setMeeting: (updatedMeeting) =>
     set((state) => ({
       meeting: { ...state.meeting, ...updatedMeeting },
     })),
 
-  createMeeting: async ({
-    title,
-    description,
-    dates,
-    name,
-  }): Promise<string> => {
+  setUserTimezone: (timezone) => set({ userTimezone: timezone }),
+
+  createMeeting: async ({ title, description, name }): Promise<string> => {
+    const { selectedDates, userTimezone } = get();
+    const sortedDates = selectedDates.sort().map((dateString) => {
+      const localStartDate = new Date(`${dateString}T00:00:00`);
+      const localEndDate = new Date(`${dateString}T23:59:59.999`);
+
+      const startUTC = zonedTimeToUtc(localStartDate, userTimezone);
+      const endUTC = zonedTimeToUtc(localEndDate, userTimezone);
+      return {
+        startTime: startUTC,
+        endTime: endUTC,
+      };
+    });
     const { meetingId, participantId } = await createMeetingService({
       title,
       description,
-      dates,
+      dates: sortedDates,
       name,
     });
     set({
@@ -57,10 +73,11 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         id: meetingId,
         title,
         description,
-        dates,
+        dates: sortedDates,
       },
       participants: [{ id: participantId, name: name }],
       currentUser: { id: participantId, name },
+      selectedDates: [],
     });
     return meetingId;
   },
@@ -132,5 +149,18 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     }
 
     set({ selectedSlots: updateSlots });
+  },
+
+  toggleDate: ({ date, isSelect }) => {
+    let updateSlots;
+    const { selectedDates } = get();
+
+    if (isSelect) {
+      updateSlots = selectedDates.filter((id) => id !== date);
+    } else {
+      updateSlots = [...selectedDates, date];
+    }
+
+    set({ selectedDates: updateSlots });
   },
 }));

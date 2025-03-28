@@ -57,9 +57,9 @@ export const SignupCard = ({ error, onSignup }: SignupCardProps) => {
             </h3>
             <div className="max-h-48 overflow-y-auto pr-2">
               <ul className="space-y-1">
-                {participants.map((participant) => (
+                {participants.map((participant, index) => (
                   <li
-                    key={participant.id}
+                    key={index}
                     className="text-sm text-gray-600 flex items-center truncate"
                   >
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-2 flex-shrink-0"></div>

@@ -21,12 +21,7 @@ export const generateTimeSlots = () => {
       .padStart(2, "0")}`;
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return format(date, "EEE, MMM d");
-  };
-
-  return { timeSlots, formatTime, formatDate };
+  return { timeSlots, formatTime };
 };
 
 export async function findExistParticipant({

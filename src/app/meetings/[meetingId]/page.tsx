@@ -17,6 +17,7 @@ import { GroupAvailabilityGrid } from "@/components/GroupAvailabilityGrid";
 import { SignupCard, SignupCardProps } from "@/components/SignupCard";
 import { Fallback } from "@/components/Fallback";
 import { useMeetingStore } from "@/store/meetingStore";
+import { TimezoneSelect } from "@/components/TimezoneSelect";
 
 export default function MeetingPage() {
   const params = useParams();
@@ -102,27 +103,14 @@ export default function MeetingPage() {
           <>
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>{meeting.title}</CardTitle>
-                <CardDescription>
-                  Select your available time slots by clicking or dragging
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
                 <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md">
                   <p className="font-medium">Welcome, {currentUser?.name}!</p>
-                  <p className="text-sm mt-1">
-                    You can modify your time selections.
-                  </p>
                 </div>
-                <div className="text-sm mb-4">
-                  <p className="font-medium">Instructions:</p>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    <li>Click on a time slot to select it</li>
-                    <li>Click and drag to select multiple time slots</li>
-                    <li>Click on a selected slot to deselect it</li>
-                  </ul>
-                </div>
-
+                <CardTitle>{meeting.title}</CardTitle>
+                <CardDescription>{meeting.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TimezoneSelect />
                 {error && (
                   <div className="text-red-500 text-sm mt-2 mb-2">{error}</div>
                 )}
@@ -143,7 +131,14 @@ export default function MeetingPage() {
                       Select Your Available Times
                     </CardTitle>
                     <CardDescription>
-                      Click and drag to select multiple time slots
+                      <div className="text-sm mb-4">
+                        <p className="font-medium">Instructions:</p>
+                        <ul className="list-disc pl-5 mt-1 space-y-1">
+                          <li>Click on a time slot to select it</li>
+                          <li>Click and drag to select multiple time slots</li>
+                          <li>Click on a selected slot to deselect it</li>
+                        </ul>
+                      </div>
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -154,10 +149,10 @@ export default function MeetingPage() {
                 <Card className="overflow-hidden">
                   <CardHeader>
                     <CardTitle className="text-lg">
-                      Group Availability Overview
+                      Group Availability Preview
                     </CardTitle>
                     <CardDescription>
-                      See when everyone is available
+                      Preview when everyone is available
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">

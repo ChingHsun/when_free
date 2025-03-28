@@ -2,9 +2,14 @@ export interface Meeting {
   id: string | null;
   title: string | null;
   description: string | null;
-  dates: string[] | null;
+  dates: DateRange[] | null;
   resultTimeSlots?: string[] | null;
   participants?: Participant[] | null;
+}
+
+export type DateRange = {
+	startTime: Date;
+	endTime: Date;
 }
 
 export interface Participant {

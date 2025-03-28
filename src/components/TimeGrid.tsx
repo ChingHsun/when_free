@@ -1,19 +1,18 @@
 import { useState, useEffect } from "react";
-import { parseISO, differenceInDays } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { generateTimeSlots } from "@/lib/utils";
 import { useMeetingStore } from "@/store/meetingStore";
 
 export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
-  const { timeSlots, formatTime, formatDate } = generateTimeSlots();
+  const { timeSlots, formatTime } = generateTimeSlots();
   const { meeting, selectedSlots, toggleSlot } = useMeetingStore();
-  const dates = meeting.dates || [];
+
+  const sortedDates = meeting.dates || [];
 
   // Check if dates are consecutive and add spacing if needed
   const areDatesConsecutive = (date1: string, date2: string) => {
-    const d1 = parseISO(date1);
-    const d2 = parseISO(date2);
-    return differenceInDays(d2, d1) === 1;
+    return differenceInDays(new Date(date2), new Date(date1)) === 1;
   };
 
   const handleMouseDown = (slotId: string) => {
@@ -26,10 +25,6 @@ export function TimeGrid() {
       updateSlotSelection(slotId);
     }
   };
-
-  const sortedDates = [...dates].sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
-  );
 
   const updateSlotSelection = (slotId: string) => {
     const isSelect = selectedSlots.includes(slotId);
@@ -54,7 +49,6 @@ export function TimeGrid() {
       <table className="min-w-full border-collapse select-none">
         <thead>
           <tr>
-            {/* Empty corner cell */}
             <th className="border p-2 bg-gray-100"></th>
 
             {sortedDates.map((date, index) => {
@@ -64,12 +58,12 @@ export function TimeGrid() {
 
               return (
                 <th
-                  key={date}
+                  key={index}
                   className={`border p-2 text-center font-medium bg-gray-100 ${
                     needsSpacing ? "border-l-4 border-l-gray-300" : ""
                   }`}
                 >
-                  {formatDate(date)}
+                  {format(new Date(date), "MMM d, EEE")}
                 </th>
               );
             })}
