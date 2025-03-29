@@ -35,7 +35,7 @@ interface MeetingState {
 }
 
 export const useMeetingStore = create<MeetingState>((set, get) => ({
-  meeting: { id: null, title: null, description: null, dates: null },
+  meeting: { id: "", title: "", description: null, dates: [] },
   selectedDates: [],
   participants: null,
   currentUser: null,

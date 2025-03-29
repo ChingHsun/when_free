@@ -7,7 +7,7 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-	Timestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { Meeting, Participant } from "./types";
@@ -24,7 +24,10 @@ export async function createMeetingService({
     const meeting = {
       title,
       description,
-      dates: dates?.map((({startTime, endTime}) =>  ({startTime: Timestamp.fromDate(startTime), endTime: Timestamp.fromDate(endTime)}))),
+      dates: dates?.map(({ startTime, endTime }) => ({
+        startTime: Timestamp.fromDate(startTime),
+        endTime: Timestamp.fromDate(endTime),
+      })),
       createdAt: serverTimestamp(),
     };
 
@@ -78,11 +81,17 @@ export async function getMeetingByIdService({
       };
     });
 
-    const meetingData = meetingSnap.data() as Omit<Meeting, "id">;
+    const meetingData = meetingSnap.data() as Omit<Meeting, "id" | "dates"> & {
+      dates: { startTime: Timestamp; endTime: Timestamp }[];
+    };
 
     const meeting = {
       id: meetingSnap.id,
       ...meetingData,
+      dates: meetingData.dates.map(({ startTime, endTime }) => ({
+        startTime: startTime.toDate(),
+        endTime: endTime.toDate(),
+      })),
     };
 
     return { meeting, participants };

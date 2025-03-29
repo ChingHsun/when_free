@@ -2,17 +2,19 @@ import { useState, useEffect } from "react";
 import { differenceInDays, format } from "date-fns";
 import { generateTimeSlots } from "@/lib/utils";
 import { useMeetingStore } from "@/store/meetingStore";
+import { DateRange } from "@/lib/types";
 
 export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
   const { timeSlots, formatTime } = generateTimeSlots();
   const { meeting, selectedSlots, toggleSlot } = useMeetingStore();
 
-  const sortedDates = meeting.dates || [];
-
   // Check if dates are consecutive and add spacing if needed
-  const areDatesConsecutive = (date1: string, date2: string) => {
-    return differenceInDays(new Date(date2), new Date(date1)) === 1;
+  const areDatesConsecutive = (date1: DateRange, date2: DateRange) => {
+    return (
+      differenceInDays(new Date(date2.startTime), new Date(date1.startTime)) ===
+      1
+    );
   };
 
   const handleMouseDown = (slotId: string) => {
@@ -51,10 +53,11 @@ export function TimeGrid() {
           <tr>
             <th className="border p-2 bg-gray-100"></th>
 
-            {sortedDates.map((date, index) => {
+            {meeting.dates.map((date, index) => {
               // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
-                index > 0 && !areDatesConsecutive(sortedDates[index - 1], date);
+                index > 0 &&
+                !areDatesConsecutive(meeting.dates[index - 1], date);
 
               return (
                 <th
@@ -63,7 +66,7 @@ export function TimeGrid() {
                     needsSpacing ? "border-l-4 border-l-gray-300" : ""
                   }`}
                 >
-                  {format(new Date(date), "MMM d, EEE")}
+                  {format(new Date(date.startTime), "MMM d, EEE")}
                 </th>
               );
             })}
@@ -79,14 +82,14 @@ export function TimeGrid() {
               </td>
 
               {/* Slots for each date */}
-              {sortedDates.map((date, index) => {
+              {meeting.dates.map((date, index) => {
                 const slotId = `${date}_${hour}_${minute}`;
                 const isSelected = selectedSlots.includes(slotId);
 
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =
                   index > 0 &&
-                  !areDatesConsecutive(sortedDates[index - 1], date);
+                  !areDatesConsecutive(meeting.dates[index - 1], date);
 
                 return (
                   <td

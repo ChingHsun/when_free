@@ -1,16 +1,16 @@
 export interface Meeting {
-  id: string | null;
-  title: string | null;
+  id: string;
+  title: string;
   description: string | null;
-  dates: DateRange[] | null;
+  dates: DateRange[];
   resultTimeSlots?: string[] | null;
   participants?: Participant[] | null;
 }
 
 export type DateRange = {
-	startTime: Date;
-	endTime: Date;
-}
+  startTime: Date;
+  endTime: Date;
+};
 
 export interface Participant {
   id: string;
