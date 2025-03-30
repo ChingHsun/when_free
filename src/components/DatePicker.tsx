@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { format, addDays } from "date-fns";
-import { utcToZonedTime } from "date-fns-tz";
+import { TZDate } from "@date-fns/tz";
+
 import { Calendar } from "@/components/ui/calendar";
 import { useMeetingStore } from "@/store/meetingStore";
 
@@ -21,7 +22,7 @@ export function DatePicker() {
   const [, setRenderTrigger] = useState(0);
 
   const todayInTimezone = useMemo(
-    () => format(utcToZonedTime(new Date(), userTimezone), DATE_FORMAT),
+    () => format(new TZDate(new Date(), userTimezone), DATE_FORMAT),
     [userTimezone]
   );
 

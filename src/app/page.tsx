@@ -18,9 +18,6 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/DatePicker";
 import { useMeetingStore } from "@/store/meetingStore";
 import { Fallback } from "@/components/Fallback";
-import { endOfDay, format, parse, parseISO, startOfDay } from "date-fns";
-import { utcToZonedTime, zonedTimeToUtc } from "date-fns-tz";
-import { Timestamp } from "firebase/firestore";
 
 export default function Home() {
   const router = useRouter();
@@ -177,7 +174,7 @@ export default function Home() {
         {/* Create Button */}
         <Button
           className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2 py-6 text-lg"
-          disabled={!name || !meeting.title || meeting.dates?.length === 0}
+          disabled={!name || !meeting.title || selectedDates.length === 0}
           onClick={handleCreateMeeting}
         >
           Create Meeting

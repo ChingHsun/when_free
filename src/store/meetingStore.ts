@@ -6,8 +6,8 @@ import {
   getMeetingByIdService,
   updateAvailabilityService,
 } from "@/lib/meetingService";
-import { zonedTimeToUtc } from "date-fns-tz";
 import { groupConsecutiveDates } from "@/utils/groupConsecutiveDates";
+import { TZDate } from "@date-fns/tz";
 
 interface MeetingState {
   meeting: Meeting;
@@ -56,8 +56,8 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     const sortedDates = groupConsecutiveDates(selectedDates).map(
       ({ startDate, endDate }) => {
         return {
-          startTime: zonedTimeToUtc(startDate, userTimezone),
-          endTime: zonedTimeToUtc(endDate, userTimezone),
+          startTime: new TZDate(startDate, userTimezone),
+          endTime: new TZDate(endDate, userTimezone),
         };
       }
     );
