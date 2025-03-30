@@ -7,6 +7,7 @@ import {
   updateAvailabilityService,
 } from "@/lib/meetingService";
 import { zonedTimeToUtc } from "date-fns-tz";
+import { groupConsecutiveDates } from "@/utils/groupConsecutiveDates";
 
 interface MeetingState {
   meeting: Meeting;
@@ -51,23 +52,23 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
 
   createMeeting: async ({ title, description, name }): Promise<string> => {
     const { selectedDates, userTimezone } = get();
-    const sortedDates = selectedDates.sort().map((dateString) => {
-      const localStartDate = new Date(`${dateString}T00:00:00`);
-      const localEndDate = new Date(`${dateString}T23:59:59.999`);
 
-      const startUTC = zonedTimeToUtc(localStartDate, userTimezone);
-      const endUTC = zonedTimeToUtc(localEndDate, userTimezone);
-      return {
-        startTime: startUTC,
-        endTime: endUTC,
-      };
-    });
+    const sortedDates = groupConsecutiveDates(selectedDates).map(
+      ({ startDate, endDate }) => {
+        return {
+          startTime: zonedTimeToUtc(startDate, userTimezone),
+          endTime: zonedTimeToUtc(endDate, userTimezone),
+        };
+      }
+    );
+
     const { meetingId, participantId } = await createMeetingService({
       title,
       description,
       dates: sortedDates,
       name,
     });
+
     set({
       meeting: {
         id: meetingId,
