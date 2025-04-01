@@ -1,31 +1,24 @@
 import { TZDate } from "@date-fns/tz";
 
-function getTzOffset(timeZone: string) {
-  try {
-    const now = new Date();
-    const tzDate = new TZDate(now, timeZone);
+function getTzOffset(timeZone: string): string {
+  const now = new Date();
+  const tzDate = new TZDate(now, timeZone);
 
-    const dateString = tzDate.toString();
-    const offsetMatch = dateString.match(/GMT([+-]\d{4})/);
+  const dateString = tzDate.toString();
+  const offsetMatch = dateString.match(/GMT([+-]\d{4})/);
 
-    if (offsetMatch && offsetMatch[1]) {
-      const offset = offsetMatch[1];
-      return `${offset.slice(0, 3)}:${offset.slice(3, 5)}`;
-    }
-  } catch (error) {
-    console.error(`Error calculating offset for ${timeZone}:`, error);
-  }
+  const offset = offsetMatch![1];
+  return `${offset.slice(0, 3)}:${offset.slice(3, 5)}`;
 }
 
-function covertTZ({
+function convertTZ({
   time,
   userTimezone,
 }: {
   time: string;
   userTimezone: string;
 }) {
-  console.log("t", `${time}${getTzOffset(userTimezone)}`);
-  return `${time}${getTzOffset(userTimezone)}`;
+  return `${time.replace(/Z$/, getTzOffset(userTimezone))}`;
 }
 
 function convertUTC({
@@ -39,4 +32,4 @@ function convertUTC({
   return tzDate.replace(/[+-]\d{2}:\d{2}$/, "Z");
 }
 
-export { getTzOffset, convertUTC, covertTZ };
+export { getTzOffset, convertUTC, convertTZ };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { differenceInDays, format } from "date-fns";
 import { useMeetingStore } from "@/store/meetingStore";
 import {
@@ -7,13 +7,19 @@ import {
   generateTimeSlots,
 } from "@/utils/generateTimeGrid";
 import { TZDate } from "@date-fns/tz";
+import { convertUTC } from "@/utils/tzUtils";
 
 export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
-  const { meeting, selectedSlots, userTimezone, toggleSlot, setMeeting } =
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+  const { meeting, selectedTZSlots, userTimezone, setSelectedTZSlots } =
     useMeetingStore();
-  const displayDates = generateDate(meeting.dates, userTimezone);
-  const timeSlots = generateTimeSlots();
+
+  const displayDates = useMemo(
+    () => generateDate(meeting.dates, userTimezone),
+    [meeting.dates, userTimezone]
+  );
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
 
   const handleMouseDown = (slotId: string) => {
     setIsDragging(true);
@@ -28,7 +34,11 @@ export function TimeGrid() {
 
   const updateSlotSelection = (slotId: string) => {
     const isSelect = selectedSlots.includes(slotId);
-    toggleSlot({ isSelect, slotId });
+    if (isSelect) {
+      setSelectedSlots((prev) => prev.filter((id) => id !== slotId));
+    } else {
+      setSelectedSlots((prev) => [...prev, slotId]);
+    }
   };
 
   useEffect(() => {
@@ -45,19 +55,17 @@ export function TimeGrid() {
   }, []);
 
   useEffect(() => {
-    const tzDates = meeting.dates.map(({ startTime, endTime }) => ({
-      startTime: new TZDate(startTime, userTimezone).toISOString(),
-      endTime: new TZDate(endTime, userTimezone).toISOString(),
-    }));
-
-    setMeeting({
-      dates: tzDates,
-    });
+    const utcDates = selectedTZSlots
+      .map((slotId) => {
+        return new TZDate(slotId, userTimezone).toISOString();
+      })
+      .map((date) => convertUTC({ time: date, userTimezone }));
+    setSelectedSlots(utcDates);
   }, [userTimezone]);
 
   useEffect(() => {
-    console.log("t", meeting.dates);
-  }, [meeting.dates]);
+    setSelectedTZSlots(selectedSlots);
+  }, [selectedSlots, setSelectedTZSlots]);
 
   return (
     <div className="overflow-x-auto">
@@ -70,7 +78,7 @@ export function TimeGrid() {
               // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
                 index > 0 &&
-                !(differenceInDays(displayDates[index - 1], date) === 1);
+                differenceInDays(date, displayDates[index - 1]) > 1;
 
               return (
                 <th
@@ -107,7 +115,7 @@ export function TimeGrid() {
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =
                   index > 0 &&
-                  !(differenceInDays(displayDates[index - 1], date) === 1);
+                  differenceInDays(date, displayDates[index - 1]) > 1;
 
                 return (
                   <td

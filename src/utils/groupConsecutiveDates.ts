@@ -18,7 +18,7 @@ export function groupConsecutiveDates(
 
   const result = [];
   let currentRange = {
-    startTime: `${sortedDates[0]}T00:00:000${tzOffset}`,
+    startTime: `${sortedDates[0]}T00:00:00.000${tzOffset}`,
     endTime: `${sortedDates[0]}T23:59:59.999${tzOffset}`,
   };
 
@@ -31,7 +31,7 @@ export function groupConsecutiveDates(
     } else {
       result.push(currentRange);
       currentRange = {
-        startTime: `${sortedDates[i]}T00:00:000${tzOffset}`,
+        startTime: `${sortedDates[i]}T00:00:00.000${tzOffset}`,
         endTime: `${sortedDates[i]}T23:59:59.999${tzOffset}`,
       };
     }

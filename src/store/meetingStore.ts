@@ -7,17 +7,18 @@ import {
   updateAvailabilityService,
 } from "@/lib/meetingService";
 import { groupConsecutiveDates } from "@/utils/groupConsecutiveDates";
-import { TZDate } from "@date-fns/tz";
+import { convertTZ } from "@/utils/tzUtils";
 
 interface MeetingState {
   meeting: Meeting;
   selectedDates: string[];
   participants: Participant[] | null;
   currentUser: Participant | null;
-  selectedSlots: string[];
+  selectedTZSlots: string[];
   userTimezone: string;
 
   setMeeting: (value: Partial<Meeting>) => void;
+  setSelectedTZSlots: (date: string[]) => void;
   setUserTimezone: (timezone: string) => void;
   createMeeting: (
     data: Pick<Meeting, "title" | "description"> & {
@@ -31,7 +32,7 @@ interface MeetingState {
     name: string;
     availableSlots: string[];
   }) => Promise<void>;
-  toggleSlot: (data: { slotId: string; isSelect: boolean }) => void;
+  // toggleSlot: (data: { slotId: string; isSelect: boolean }) => void;
   toggleDate: (data: { date: string; isSelect: boolean }) => void;
 }
 
@@ -40,7 +41,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   selectedDates: [],
   participants: null,
   currentUser: null,
-  selectedSlots: [],
+  selectedTZSlots: [],
   userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 
   setMeeting: (updatedMeeting) =>
@@ -49,6 +50,15 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     })),
 
   setUserTimezone: (timezone) => set({ userTimezone: timezone }),
+
+  setSelectedTZSlots: (dates) => {
+    const { userTimezone } = get();
+    set({
+      selectedTZSlots: dates.map((date) =>
+        convertTZ({ time: date, userTimezone })
+      ),
+    });
+  },
 
   createMeeting: async ({ title, description, name }): Promise<string> => {
     const { selectedDates, userTimezone } = get();
@@ -82,13 +92,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         meetingId,
       });
       set({
-        meeting: {
-          ...meeting,
-          dates: meeting.dates.map(({ startTime, endTime }) => ({
-            startTime: new TZDate(startTime, "UTC").toISOString(),
-            endTime: new TZDate(endTime, "UTC").toISOString(),
-          })),
-        },
+        meeting,
         participants,
       });
     } catch (err) {
@@ -120,7 +124,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         participants: state.participants
           ? [...state.participants, currentUser]
           : [currentUser],
-        selectedSlots: currentUser.availableSlots,
+        selectedTZSlots: currentUser.availableSlots,
       }));
     } catch (err) {
       throw err;
@@ -139,19 +143,6 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
     } catch (err) {
       throw err;
     }
-  },
-
-  toggleSlot: ({ slotId, isSelect }) => {
-    let updateSlots;
-    const { selectedSlots } = get();
-
-    if (isSelect) {
-      updateSlots = selectedSlots.filter((id) => id !== slotId);
-    } else {
-      updateSlots = [...selectedSlots, slotId];
-    }
-
-    set({ selectedSlots: updateSlots });
   },
 
   toggleDate: ({ date, isSelect }) => {

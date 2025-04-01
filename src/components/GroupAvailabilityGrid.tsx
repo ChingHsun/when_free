@@ -1,34 +1,21 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
+import {
+  disabledTimeSlot,
+  generateDate,
+  generateTimeSlots,
+} from "@/utils/generateTimeGrid";
+import { useMeetingStore } from "@/store/meetingStore";
 
-interface Participant {
-  name: string;
-  availableSlots?: string[];
-}
+export function GroupAvailabilityGrid() {
+  const { meeting, userTimezone } = useMeetingStore();
 
-interface GroupAvailabilityGridProps {
-  dates: string[];
-  participants: Participant[];
-}
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
 
-export function GroupAvailabilityGrid({
-  dates,
-  participants,
-}: GroupAvailabilityGridProps) {
-  // Generate time slots for 24 hours in 30-minute increments (from 0:00 to 23:30)
-  const timeSlots = [];
-  for (let hour = 0; hour < 24; hour++) {
-    for (const minute of [0, 30]) {
-      timeSlots.push({ hour, minute });
-    }
-  }
-
-  // Format time for display (24-hour format)
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, "0")}:${minute
-      .toString()
-      .padStart(2, "0")}`;
-  };
+  const displayDates = useMemo(
+    () => generateDate(meeting.dates, userTimezone),
+    [meeting.dates, userTimezone]
+  );
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -36,15 +23,8 @@ export function GroupAvailabilityGrid({
     return format(date, "EEE, MMM d");
   };
 
-  // Check if dates are consecutive and add spacing if needed
-  const areDatesConsecutive = (date1: string, date2: string) => {
-    const d1 = parseISO(date1);
-    const d2 = parseISO(date2);
-    return differenceInDays(d2, d1) === 1;
-  };
-
   // Calculate availability count for each time slot
-  const getAvailabilityData = (date: string, hour: number, minute: number) => {
+  const getAvailabilityData = (date: string, hour: string, minute: string) => {
     const slotId = `${date}_${hour}_${minute}`;
     let count = 0;
     const availableParticipants: string[] = [];
@@ -77,11 +57,6 @@ export function GroupAvailabilityGrid({
     return "bg-blue-700";
   };
 
-  // Sort dates chronologically
-  const sortedDates = [...dates].sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
-  );
-
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse">
@@ -91,10 +66,11 @@ export function GroupAvailabilityGrid({
             <th className="border p-2 bg-gray-100"></th>
 
             {/* Date headers with spacing for non-consecutive dates */}
-            {sortedDates.map((date, index) => {
+            {displayDates.map((date, index) => {
               // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
-                index > 0 && !areDatesConsecutive(sortedDates[index - 1], date);
+                index > 0 &&
+                differenceInDays(date, displayDates[index - 1]) > 1;
 
               return (
                 <th
@@ -115,11 +91,13 @@ export function GroupAvailabilityGrid({
             <tr key={`${hour}-${minute}`}>
               {/* Time label - only show labels for full hours */}
               <td className="border p-2 text-sm text-gray-600 bg-gray-100 font-medium">
-                {minute === 0 ? formatTime(hour, 0) : ""}
+                {minute === "00" ? `${hour}:${minute}` : ""}
               </td>
 
               {/* Heatmap cells for each date and time */}
-              {sortedDates.map((date, index) => {
+              {displayDates.map((date, index) => {
+                const slotId = `${date}T${hour}:${minute}:00.000Z`;
+
                 const availabilityData = getAvailabilityData(
                   date,
                   hour,
@@ -130,7 +108,13 @@ export function GroupAvailabilityGrid({
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =
                   index > 0 &&
-                  !areDatesConsecutive(sortedDates[index - 1], date);
+                  differenceInDays(date, displayDates[index - 1]) > 1;
+
+                const isDisabled = disabledTimeSlot(
+                  meeting.dates,
+                  slotId,
+                  userTimezone
+                );
 
                 return (
                   <td
@@ -151,7 +135,11 @@ export function GroupAvailabilityGrid({
                     }
                   >
                     <div
-                      className={`w-full h-8 ${heatColor} relative group cursor-default`}
+                      className={`w-full h-8 ${heatColor} relative group ${
+                        isDisabled
+                          ? "bg-gray-200 cursor-not-allowed"
+                          : "cursor-default"
+                      }`}
                     >
                       {availabilityData.count > 0 && (
                         <div className="absolute inset-0 flex items-center justify-center text-xs font-medium">

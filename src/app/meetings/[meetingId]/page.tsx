@@ -28,7 +28,7 @@ export default function MeetingPage() {
     meeting,
     currentUser,
     participants,
-    selectedSlots,
+    selectedTZSlots,
     fetchMeeting,
     signupMeeting,
     updateAvailability,
@@ -58,7 +58,7 @@ export default function MeetingPage() {
     updateAvailability({
       meetingId,
       name: currentUser!.name,
-      availableSlots: selectedSlots,
+      availableSlots: selectedTZSlots,
     })
       .then(() => {
         router.push(
@@ -156,10 +156,7 @@ export default function MeetingPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <GroupAvailabilityGrid
-                      dates={meeting.dates || []}
-                      participants={participants}
-                    />
+                    <GroupAvailabilityGrid />
                   </CardContent>
                 </Card>
               )}
@@ -167,9 +164,7 @@ export default function MeetingPage() {
 
             <Button
               onClick={handleSubmit}
-              disabled={
-                isSubmitting || currentUser?.availableSlots?.length === 0
-              }
+              disabled={isSubmitting || selectedTZSlots.length === 0}
               className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-lg"
             >
               {isSubmitting ? (

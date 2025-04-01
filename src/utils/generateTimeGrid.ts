@@ -60,8 +60,6 @@ function generateDate(allDates: DateRange[], userTimezone: string) {
     dateList = [...dateList, ...eachDays];
   });
 
-  console.log("eachDays", dateList);
-
   return dateList.map((date) => format(date, "yyyy-MM-dd"));
 }
 
