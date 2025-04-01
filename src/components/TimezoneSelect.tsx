@@ -10,6 +10,7 @@ export function TimezoneSelect() {
     useState<string[]>(ALL_TIME_ZONES);
 
   const { userTimezone, setUserTimezone } = useMeetingStore();
+
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredTimezones(ALL_TIME_ZONES);

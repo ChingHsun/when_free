@@ -53,14 +53,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   createMeeting: async ({ title, description, name }): Promise<string> => {
     const { selectedDates, userTimezone } = get();
 
-    const sortedDates = groupConsecutiveDates(selectedDates).map(
-      ({ startDate, endDate }) => {
-        return {
-          startTime: new TZDate(startDate, userTimezone),
-          endTime: new TZDate(endDate, userTimezone),
-        };
-      }
-    );
+    const sortedDates = groupConsecutiveDates(selectedDates, userTimezone);
 
     const { meetingId, participantId } = await createMeetingService({
       title,
@@ -88,7 +81,16 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
       const { meeting, participants } = await getMeetingByIdService({
         meetingId,
       });
-      set({ meeting, participants });
+      set({
+        meeting: {
+          ...meeting,
+          dates: meeting.dates.map(({ startTime, endTime }) => ({
+            startTime: new TZDate(startTime, "UTC").toISOString(),
+            endTime: new TZDate(endTime, "UTC").toISOString(),
+          })),
+        },
+        participants,
+      });
     } catch (err) {
       throw err;
     }
@@ -153,15 +155,15 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   },
 
   toggleDate: ({ date, isSelect }) => {
-    let updateSlots;
+    let updateDates;
     const { selectedDates } = get();
 
     if (isSelect) {
-      updateSlots = selectedDates.filter((id) => id !== date);
+      updateDates = selectedDates.filter((id) => id !== date);
     } else {
-      updateSlots = [...selectedDates, date];
+      updateDates = [...selectedDates, date];
     }
 
-    set({ selectedDates: updateSlots });
+    set({ selectedDates: updateDates });
   },
 }));

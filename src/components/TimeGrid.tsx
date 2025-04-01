@@ -1,21 +1,19 @@
 import { useState, useEffect } from "react";
 import { differenceInDays, format } from "date-fns";
-import { generateTimeSlots } from "@/lib/utils";
 import { useMeetingStore } from "@/store/meetingStore";
-import { DateRange } from "@/lib/types";
+import {
+  disabledTimeSlot,
+  generateDate,
+  generateTimeSlots,
+} from "@/utils/generateTimeGrid";
+import { TZDate } from "@date-fns/tz";
 
 export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
-  const { timeSlots, formatTime } = generateTimeSlots();
-  const { meeting, selectedSlots, toggleSlot } = useMeetingStore();
-
-  // Check if dates are consecutive and add spacing if needed
-  const areDatesConsecutive = (date1: DateRange, date2: DateRange) => {
-    return (
-      differenceInDays(new Date(date2.startTime), new Date(date1.startTime)) ===
-      1
-    );
-  };
+  const { meeting, selectedSlots, userTimezone, toggleSlot, setMeeting } =
+    useMeetingStore();
+  const displayDates = generateDate(meeting.dates, userTimezone);
+  const timeSlots = generateTimeSlots();
 
   const handleMouseDown = (slotId: string) => {
     setIsDragging(true);
@@ -46,6 +44,21 @@ export function TimeGrid() {
     }
   }, []);
 
+  useEffect(() => {
+    const tzDates = meeting.dates.map(({ startTime, endTime }) => ({
+      startTime: new TZDate(startTime, userTimezone).toISOString(),
+      endTime: new TZDate(endTime, userTimezone).toISOString(),
+    }));
+
+    setMeeting({
+      dates: tzDates,
+    });
+  }, [userTimezone]);
+
+  useEffect(() => {
+    console.log("t", meeting.dates);
+  }, [meeting.dates]);
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse select-none">
@@ -53,11 +66,11 @@ export function TimeGrid() {
           <tr>
             <th className="border p-2 bg-gray-100"></th>
 
-            {meeting.dates.map((date, index) => {
+            {displayDates.map((date, index) => {
               // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
                 index > 0 &&
-                !areDatesConsecutive(meeting.dates[index - 1], date);
+                !(differenceInDays(displayDates[index - 1], date) === 1);
 
               return (
                 <th
@@ -66,7 +79,7 @@ export function TimeGrid() {
                     needsSpacing ? "border-l-4 border-l-gray-300" : ""
                   }`}
                 >
-                  {format(new Date(date.startTime), "MMM d, EEE")}
+                  {format(date, "MMM d, EEE")}
                 </th>
               );
             })}
@@ -78,18 +91,23 @@ export function TimeGrid() {
             <tr key={`${hour}-${minute}`}>
               {/* Time label - only show labels for full hours */}
               <td className="border p-2 text-sm text-gray-600 bg-gray-100 font-medium">
-                {minute === 0 ? formatTime(hour, 0) : ""}
+                {minute === "00" ? `${hour}:${minute}` : ""}
               </td>
 
               {/* Slots for each date */}
-              {meeting.dates.map((date, index) => {
-                const slotId = `${date}_${hour}_${minute}`;
+              {displayDates.map((date, index) => {
+                const slotId = `${date}T${hour}:${minute}:00.000Z`;
                 const isSelected = selectedSlots.includes(slotId);
+                const isDisabled = disabledTimeSlot(
+                  meeting.dates,
+                  slotId,
+                  userTimezone
+                );
 
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =
                   index > 0 &&
-                  !areDatesConsecutive(meeting.dates[index - 1], date);
+                  !(differenceInDays(displayDates[index - 1], date) === 1);
 
                 return (
                   <td
@@ -100,12 +118,15 @@ export function TimeGrid() {
                   >
                     <div
                       className={`
-                        w-full h-8 cursor-pointer
-                        ${
-                          isSelected
-                            ? "bg-blue-600 hover:bg-blue-700"
-                            : "bg-white hover:bg-gray-50"
+                        w-full h-8 
+												${
+                          isDisabled
+                            ? "bg-gray-200 cursor-not-allowed"
+                            : isSelected
+                            ? "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                            : "bg-white hover:bg-gray-50 cursor-pointer"
                         }
+                     
                       `}
                       onMouseDown={() => handleMouseDown(slotId)}
                       onMouseEnter={() => handleMouseEnter(slotId)}

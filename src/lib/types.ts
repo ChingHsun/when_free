@@ -8,8 +8,8 @@ export interface Meeting {
 }
 
 export type DateRange = {
-  startTime: Date;
-  endTime: Date;
+  startTime: string;
+  endTime: string;
 };
 
 export interface Participant {
