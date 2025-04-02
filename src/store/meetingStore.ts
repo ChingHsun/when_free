@@ -12,7 +12,7 @@ import { convertTZ } from "@/utils/tzUtils";
 interface MeetingState {
   meeting: Meeting;
   selectedDates: string[];
-  participants: Participant[] | null;
+  participants: Participant[];
   currentUser: Participant | null;
   selectedTZSlots: string[];
   userTimezone: string;
@@ -39,7 +39,7 @@ interface MeetingState {
 export const useMeetingStore = create<MeetingState>((set, get) => ({
   meeting: { id: "", title: "", description: null, dates: [] },
   selectedDates: [],
-  participants: null,
+  participants: [],
   currentUser: null,
   selectedTZSlots: [],
   userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

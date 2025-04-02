@@ -1,14 +1,15 @@
 import React, { useMemo } from "react";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import {
   disabledTimeSlot,
   generateDate,
   generateTimeSlots,
 } from "@/utils/generateTimeGrid";
 import { useMeetingStore } from "@/store/meetingStore";
+import { convertTZ } from "@/utils/tzUtils";
 
 export function GroupAvailabilityGrid() {
-  const { meeting, userTimezone } = useMeetingStore();
+  const { meeting, userTimezone, participants } = useMeetingStore();
 
   const timeSlots = useMemo(() => generateTimeSlots(), []);
 
@@ -17,28 +18,20 @@ export function GroupAvailabilityGrid() {
     [meeting.dates, userTimezone]
   );
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return format(date, "EEE, MMM d");
-  };
-
-  // Calculate availability count for each time slot
-  const getAvailabilityData = (date: string, hour: string, minute: string) => {
-    const slotId = `${date}_${hour}_${minute}`;
+  const getAvailabilityData = (slotId: string) => {
     let count = 0;
     const availableParticipants: string[] = [];
-
+    const tzSlotId = convertTZ({ time: slotId, userTimezone });
     participants.forEach((participant) => {
-      if (participant.availableSlots?.includes(slotId)) {
+      if (participant.availableSlots?.includes(tzSlotId)) {
         count++;
         availableParticipants.push(participant.name);
       }
     });
 
     const percentage =
-      participants.length > 0
-        ? Math.round((count / participants.length) * 100)
+      participants?.length > 0
+        ? Math.round((count / participants?.length) * 100)
         : 0;
 
     return {
@@ -67,7 +60,6 @@ export function GroupAvailabilityGrid() {
 
             {/* Date headers with spacing for non-consecutive dates */}
             {displayDates.map((date, index) => {
-              // Add spacing class if current date is not consecutive with previous
               const needsSpacing =
                 index > 0 &&
                 differenceInDays(date, displayDates[index - 1]) > 1;
@@ -79,7 +71,7 @@ export function GroupAvailabilityGrid() {
                     needsSpacing ? "border-l-4 border-l-gray-300" : ""
                   }`}
                 >
-                  {formatDate(date)}
+                  {format(date, "MMM d, EEE")}
                 </th>
               );
             })}
@@ -98,13 +90,8 @@ export function GroupAvailabilityGrid() {
               {displayDates.map((date, index) => {
                 const slotId = `${date}T${hour}:${minute}:00.000Z`;
 
-                const availabilityData = getAvailabilityData(
-                  date,
-                  hour,
-                  minute
-                );
+                const availabilityData = getAvailabilityData(slotId);
                 const heatColor = getHeatColor(availabilityData.percentage);
-
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =
                   index > 0 &&
