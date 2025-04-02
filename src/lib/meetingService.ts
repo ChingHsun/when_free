@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { Meeting, Participant } from "./types";
+import { TZDate } from "@date-fns/tz";
 
 export async function createMeetingService({
   title,
@@ -23,7 +24,10 @@ export async function createMeetingService({
     const meeting = {
       title,
       description,
-      dates,
+      dates: dates.map(({ startTime, endTime }) => ({
+        startTime: new TZDate(startTime, "UTC").toISOString(),
+        endTime: new TZDate(endTime, "UTC").toISOString(),
+      })),
       createdAt: serverTimestamp(),
     };
 
@@ -52,8 +56,10 @@ export async function createMeetingService({
 
 export async function getMeetingByIdService({
   meetingId,
+  userTimezone,
 }: {
   meetingId: string;
+  userTimezone: string;
 }): Promise<{
   meeting: Meeting;
   participants: Participant[];
@@ -77,6 +83,9 @@ export async function getMeetingByIdService({
       return {
         id: doc.id,
         ...data,
+        availableSlots: data.availableSlots?.map((time) =>
+          new TZDate(time, userTimezone).toISOString()
+        ),
       };
     });
 
@@ -85,6 +94,10 @@ export async function getMeetingByIdService({
     const meeting = {
       id: meetingSnap.id,
       ...meetingData,
+      date: meetingData.dates.map(({ startTime, endTime }) => ({
+        startTime: new TZDate(startTime, userTimezone).toISOString(),
+        endTime: new TZDate(endTime, userTimezone).toISOString(),
+      })),
     };
 
     return { meeting, participants };
@@ -110,6 +123,7 @@ export async function addParticipantService({
 
     await setDoc(participantRef, {
       name,
+      availableSlots: [],
       joinedAt: serverTimestamp(),
     });
 
@@ -129,6 +143,7 @@ export async function updateAvailabilityService({
   meetingId: string;
   name: string;
   availableSlots: string[];
+  userTimezone: string;
 }) {
   try {
     const participantRef = doc(
@@ -138,7 +153,9 @@ export async function updateAvailabilityService({
     );
 
     await updateDoc(participantRef, {
-      availableSlots,
+      availableSlots: availableSlots.map((time) =>
+        new TZDate(time, "UTC").toISOString()
+      ),
       lastUpdated: serverTimestamp(),
     });
 
@@ -149,7 +166,7 @@ export async function updateAvailabilityService({
   }
 }
 
-export async function getParticipants(meetingId: string) {
+export async function getParticipants(meetingId: string, userTimezone: string) {
   try {
     const participantsRef = collection(
       firestore,
@@ -162,6 +179,9 @@ export async function getParticipants(meetingId: string) {
       return {
         id: doc.id,
         ...data,
+        availableSlots: data.availableSlots?.map((time) =>
+          new TZDate(time, userTimezone).toISOString()
+        ),
       };
     });
 
@@ -173,10 +193,13 @@ export async function getParticipants(meetingId: string) {
 }
 
 // 計算重疊的時間槽
-export async function getOverlappingSlots(meetingId: string) {
+export async function getOverlappingSlots(
+  meetingId: string,
+  userTimezone: string
+) {
   try {
     // 獲取所有參與者
-    const participants = await getParticipants(meetingId);
+    const participants = await getParticipants(meetingId, userTimezone);
 
     if (participants.length === 0) {
       return [];

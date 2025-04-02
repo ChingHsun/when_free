@@ -6,13 +6,11 @@ import {
   generateDate,
   generateTimeSlots,
 } from "@/utils/generateTimeGrid";
-import { TZDate } from "@date-fns/tz";
-import { convertUTC } from "@/utils/tzUtils";
+import { convertHardTextTZ } from "@/utils/tzUtils";
 
 export function TimeGrid() {
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
-  const { meeting, selectedTZSlots, userTimezone, setSelectedTZSlots } =
+  const { meeting, selectedTZSlots, userTimezone, toggleSlot } =
     useMeetingStore();
 
   const displayDates = useMemo(
@@ -33,12 +31,8 @@ export function TimeGrid() {
   };
 
   const updateSlotSelection = (slotId: string) => {
-    const isSelect = selectedSlots.includes(slotId);
-    if (isSelect) {
-      setSelectedSlots((prev) => prev.filter((id) => id !== slotId));
-    } else {
-      setSelectedSlots((prev) => [...prev, slotId]);
-    }
+    const isSelect = selectedTZSlots.includes(slotId);
+    toggleSlot({ slotId, isSelect });
   };
 
   useEffect(() => {
@@ -53,19 +47,6 @@ export function TimeGrid() {
       };
     }
   }, []);
-
-  useEffect(() => {
-    const utcDates = selectedTZSlots
-      .map((slotId) => {
-        return new TZDate(slotId, userTimezone).toISOString();
-      })
-      .map((date) => convertUTC({ time: date, userTimezone }));
-    setSelectedSlots(utcDates);
-  }, [userTimezone]);
-
-  useEffect(() => {
-    setSelectedTZSlots(selectedSlots);
-  }, [selectedSlots, setSelectedTZSlots]);
 
   return (
     <div className="overflow-x-auto">
@@ -104,13 +85,12 @@ export function TimeGrid() {
 
               {/* Slots for each date */}
               {displayDates.map((date, index) => {
-                const slotId = `${date}T${hour}:${minute}:00.000Z`;
-                const isSelected = selectedSlots.includes(slotId);
-                const isDisabled = disabledTimeSlot(
-                  meeting.dates,
-                  slotId,
-                  userTimezone
-                );
+                const slotId = convertHardTextTZ({
+                  time: `${date}T${hour}:${minute}:00.000Z`,
+                  userTimezone,
+                });
+                const isSelected = selectedTZSlots.includes(slotId);
+                const isDisabled = disabledTimeSlot(meeting.dates, slotId);
 
                 // Add spacing class if current date is not consecutive with previous
                 const needsSpacing =

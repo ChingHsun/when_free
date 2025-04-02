@@ -11,7 +11,7 @@ function getTzOffset(timeZone: string): string {
   return `${offset.slice(0, 3)}:${offset.slice(3, 5)}`;
 }
 
-function convertTZ({
+function convertHardTextTZ({
   time,
   userTimezone,
 }: {
@@ -21,7 +21,7 @@ function convertTZ({
   return `${time.replace(/Z$/, getTzOffset(userTimezone))}`;
 }
 
-function convertUTC({
+function convertHardTextUTC({
   time,
   userTimezone,
 }: {
@@ -32,4 +32,4 @@ function convertUTC({
   return tzDate.replace(/[+-]\d{2}:\d{2}$/, "Z");
 }
 
-export { getTzOffset, convertUTC, convertTZ };
+export { getTzOffset, convertHardTextUTC, convertHardTextTZ };

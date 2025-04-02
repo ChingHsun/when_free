@@ -7,7 +7,8 @@ import {
   updateAvailabilityService,
 } from "@/lib/meetingService";
 import { groupConsecutiveDates } from "@/utils/groupConsecutiveDates";
-import { convertTZ } from "@/utils/tzUtils";
+import { convertHardTextTZ } from "@/utils/tzUtils";
+import { TZDate } from "@date-fns/tz";
 
 interface MeetingState {
   meeting: Meeting;
@@ -32,8 +33,8 @@ interface MeetingState {
     name: string;
     availableSlots: string[];
   }) => Promise<void>;
-  // toggleSlot: (data: { slotId: string; isSelect: boolean }) => void;
   toggleDate: (data: { date: string; isSelect: boolean }) => void;
+  toggleSlot: (data: { slotId: string; isSelect: boolean }) => void;
 }
 
 export const useMeetingStore = create<MeetingState>((set, get) => ({
@@ -49,15 +50,57 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
       meeting: { ...state.meeting, ...updatedMeeting },
     })),
 
-  setUserTimezone: (timezone) => set({ userTimezone: timezone }),
+  setUserTimezone: (timezone) => {
+    const { meeting, selectedDates, selectedTZSlots, participants } = get();
+
+    const updateMeeting = {
+      ...meeting,
+      dates: meeting.dates.map(({ startTime, endTime }) => ({
+        startTime: new TZDate(startTime, "UTC").toISOString(),
+        endTime: new TZDate(endTime, "UTC").toISOString(),
+      })),
+    };
+
+    const updatedParticipants = participants.map((participant) => ({
+      ...participant,
+      availableSlots: participant.availableSlots?.map((slot) =>
+        new TZDate(slot, timezone).toISOString()
+      ),
+    }));
+
+    set({
+      userTimezone: timezone,
+      meeting: updateMeeting,
+      selectedDates: selectedDates.map((date) =>
+        new TZDate(date, timezone).toISOString()
+      ),
+      selectedTZSlots: selectedTZSlots.map((time) =>
+        new TZDate(time, timezone).toISOString()
+      ),
+      participants: updatedParticipants,
+    });
+  },
 
   setSelectedTZSlots: (dates) => {
     const { userTimezone } = get();
     set({
       selectedTZSlots: dates.map((date) =>
-        convertTZ({ time: date, userTimezone })
+        convertHardTextTZ({ time: date, userTimezone })
       ),
     });
+  },
+
+  toggleSlot: ({ slotId, isSelect }) => {
+    let updateSlots;
+    const { selectedTZSlots } = get();
+
+    if (isSelect) {
+      updateSlots = selectedTZSlots.filter((id) => id !== slotId);
+    } else {
+      updateSlots = [...selectedTZSlots, slotId];
+    }
+
+    set({ selectedTZSlots: updateSlots });
   },
 
   createMeeting: async ({ title, description, name }): Promise<string> => {
@@ -87,9 +130,12 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   },
 
   fetchMeeting: async ({ meetingId }) => {
+    const { userTimezone } = get();
+
     try {
       const { meeting, participants } = await getMeetingByIdService({
         meetingId,
+        userTimezone,
       });
       set({
         meeting,
@@ -115,6 +161,7 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
         currentUser = {
           id: participantId,
           name: name,
+          availableSlots: [],
         };
       }
 
@@ -132,8 +179,15 @@ export const useMeetingStore = create<MeetingState>((set, get) => ({
   },
 
   updateAvailability: async ({ meetingId, name, availableSlots }) => {
+    const { userTimezone } = get();
+
     try {
-      await updateAvailabilityService({ meetingId, name, availableSlots });
+      await updateAvailabilityService({
+        meetingId,
+        name,
+        availableSlots,
+        userTimezone,
+      });
       set((state) => ({
         participants:
           state.participants?.map((p) =>

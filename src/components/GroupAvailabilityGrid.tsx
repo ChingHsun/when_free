@@ -6,7 +6,7 @@ import {
   generateTimeSlots,
 } from "@/utils/generateTimeGrid";
 import { useMeetingStore } from "@/store/meetingStore";
-import { convertTZ } from "@/utils/tzUtils";
+import { convertHardTextTZ } from "@/utils/tzUtils";
 
 export function GroupAvailabilityGrid() {
   const { meeting, userTimezone, participants } = useMeetingStore();
@@ -21,9 +21,8 @@ export function GroupAvailabilityGrid() {
   const getAvailabilityData = (slotId: string) => {
     let count = 0;
     const availableParticipants: string[] = [];
-    const tzSlotId = convertTZ({ time: slotId, userTimezone });
     participants.forEach((participant) => {
-      if (participant.availableSlots?.includes(tzSlotId)) {
+      if (participant.availableSlots?.includes(slotId)) {
         count++;
         availableParticipants.push(participant.name);
       }
@@ -88,7 +87,10 @@ export function GroupAvailabilityGrid() {
 
               {/* Heatmap cells for each date and time */}
               {displayDates.map((date, index) => {
-                const slotId = `${date}T${hour}:${minute}:00.000Z`;
+                const slotId = convertHardTextTZ({
+                  time: `${date}T${hour}:${minute}:00.000Z`,
+                  userTimezone,
+                });
 
                 const availabilityData = getAvailabilityData(slotId);
                 const heatColor = getHeatColor(availabilityData.percentage);
@@ -97,18 +99,15 @@ export function GroupAvailabilityGrid() {
                   index > 0 &&
                   differenceInDays(date, displayDates[index - 1]) > 1;
 
-                const isDisabled = disabledTimeSlot(
-                  meeting.dates,
-                  slotId,
-                  userTimezone
-                );
+                const isDisabled = disabledTimeSlot(meeting.dates, slotId);
 
                 return (
                   <td
                     key={`${date}-${hour}-${minute}`}
                     className={`border p-0 ${
                       needsSpacing ? "border-l-4 border-l-gray-300" : ""
-                    }`}
+                    }
+										`}
                     title={
                       availabilityData.count > 0
                         ? `${availabilityData.count} ${
@@ -122,10 +121,10 @@ export function GroupAvailabilityGrid() {
                     }
                   >
                     <div
-                      className={`w-full h-8 ${heatColor} relative group ${
+                      className={`w-full h-8  relative group ${
                         isDisabled
                           ? "bg-gray-200 cursor-not-allowed"
-                          : "cursor-default"
+                          : `cursor-default ${heatColor}`
                       }`}
                     >
                       {availabilityData.count > 0 && (

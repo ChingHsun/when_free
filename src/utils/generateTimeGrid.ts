@@ -7,7 +7,6 @@ import {
   isAfter,
 } from "date-fns";
 import { tz } from "@date-fns/tz";
-import { convertUTC } from "./tzUtils";
 
 type EachDay = EachDayOfIntervalResult<
   {
@@ -17,22 +16,15 @@ type EachDay = EachDayOfIntervalResult<
   undefined
 >;
 
-function disabledTimeSlot(
-  allDates: DateRange[],
-  slotId: string,
-  userTimezone: string
-): boolean {
+function disabledTimeSlot(allDates: DateRange[], slotId: string): boolean {
   if (allDates.length === 0) return false;
 
   return allDates.some(({ startTime, endTime }) => {
-    const startDateUTC = convertUTC({ time: startTime, userTimezone });
-    const endDateUTC = convertUTC({ time: endTime, userTimezone });
-
     return (
-      (isBefore(slotId, startDateUTC) &&
-        slotId.split("T")[0] === startDateUTC.split("T")[0]) ||
-      (isAfter(slotId, endDateUTC) &&
-        slotId.split("T")[0] === endDateUTC.split("T")[0])
+      (isBefore(slotId, startTime) &&
+        slotId.split("T")[0] === startTime.split("T")[0]) ||
+      (isAfter(slotId, endTime) &&
+        slotId.split("T")[0] === endTime.split("T")[0])
     );
   });
 }
