@@ -14,9 +14,10 @@ import {
 
 import { Fallback } from "@/components/Fallback";
 import { useMeetingStore } from "@/store/meetingStore";
-import { format, parseISO } from "date-fns";
-import { getOverlappingSlots } from "@/lib/meetingService";
+import { format } from "date-fns";
 import { AvailabilityResult } from "@/lib/types";
+import { getOverlappingSlots } from "@/utils/getOverlappingSlots";
+import { TZDate } from "@date-fns/tz";
 
 export default function ResultsPage() {
   const params = useParams();
@@ -25,35 +26,34 @@ export default function ResultsPage() {
   const meetingId = params.meetingId as string;
   const name = searchParams.get("name");
 
-  const { meeting, participants, fetchMeeting } = useMeetingStore();
+  const { meeting, participants, userTimezone, fetchMeeting } =
+    useMeetingStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [resultsByDate, setResultsByDate] = useState<
     Record<string, AvailabilityResult[]>
   >({});
-  const [timezone, setTimezone] = useState<string>("");
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
 
   useEffect(() => {
-    // Set the timezone
-    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-
     async function fetchData() {
       setIsLoading(true);
       try {
         await fetchMeeting({ meetingId });
-        const results = await getOverlappingSlots(meetingId);
+        const results = await getOverlappingSlots(meetingId, userTimezone);
 
         // Process the results
         const processedResults: Record<string, AvailabilityResult[]> = {};
 
         results.forEach((result) => {
           // Parse the slot ID format: date_hour_minute
-          const [dateStr, hourStr, minuteStr] = result.slot.split("_");
-          const hour = parseInt(hourStr);
-          const minute = parseInt(minuteStr);
+          const time = new TZDate(result.slotId, userTimezone);
+          const dateStr = format(time, "yyyy-MM-dd");
+          const hour = time.getHours();
+          const minute = time.getMinutes();
 
+          console.log("s", result.slotId);
           // Create formatted time strings
           const startTime = `${hour.toString().padStart(2, "0")}:${minute
             .toString()
@@ -69,8 +69,8 @@ export default function ResultsPage() {
           }
 
           processedResults[dateStr].push({
-            slotId: result.slot,
-            date: dateStr,
+            slotId: result.slotId,
+            date: format(time, "yyyy-MM-dd"),
             startTime,
             endTime,
             participants: result.participants,
@@ -95,14 +95,10 @@ export default function ResultsPage() {
     }
 
     fetchData();
-  }, [fetchMeeting, meetingId, participants?.length]);
-
-  const formatDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return format(date, "EEEE, MMMM d, yyyy");
-  };
+  }, [fetchMeeting, meetingId, participants.length, userTimezone]);
 
   const formatTime = (timeStr: string) => {
+    console.log("t", timeStr);
     // Format from 24h to 12h format
     const [hourStr, minuteStr] = timeStr.split(":");
     const hour = parseInt(hourStr);
@@ -120,10 +116,6 @@ export default function ResultsPage() {
     setShowCopiedMessage(true);
     setTimeout(() => setShowCopiedMessage(false), 2000);
   };
-
-  if (isLoading) return <Fallback status="loading" />;
-
-  if (error) return <Fallback status="error" errorMessage={error} />;
 
   // Check if two slots are consecutive
   const areConsecutiveSlots = (
@@ -186,7 +178,7 @@ export default function ResultsPage() {
       dateResults.forEach((result) => {
         allResults.push({
           ...result,
-          formattedDate: formatDate(date),
+          formattedDate: format(date, "EEEE, MMMM d, yyyy"),
         });
       });
     });
@@ -292,6 +284,10 @@ export default function ResultsPage() {
     prepareResultData();
   const anyResultsExist = allResults.length > 0;
   const noResultsAbove50Percent = anyResultsExist && !hasResultsAbove50Percent;
+
+  if (isLoading) return <Fallback status="loading" />;
+
+  if (error) return <Fallback status="error" errorMessage={error} />;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -476,7 +472,7 @@ export default function ResultsPage() {
         )}
 
         <div className="mt-8 text-center text-sm text-gray-500">
-          <p>All times shown in your timezone: {timezone}</p>
+          <p>All times shown in your timezone: {userTimezone}</p>
         </div>
       </div>
     </div>
