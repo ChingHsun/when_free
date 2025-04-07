@@ -17,6 +17,7 @@ export function DatePicker() {
   const tempSelectedDatesRef = useRef<Set<string>>(new Set(selectedDates));
   const initialSelectionRef = useRef<Set<string>>(new Set(selectedDates));
   const dragOperationIsAdd = useRef<boolean>(false); // Whether we're adding or removing dates
+  const touchIdentifierRef = useRef<number | null>(null); // To track the specific touch point
 
   // This is for render updates only
   const [, setRenderTrigger] = useState(0);
@@ -88,8 +89,8 @@ export function DatePicker() {
     [isDateDisabled]
   );
 
-  // Handle mouse down to start drag
-  const handleMouseDown = useCallback(
+  // Handle start of interaction (both mouse and touch)
+  const handleInteractionStart = useCallback(
     (date: Date) => {
       if (isDateDisabled(date)) return;
 
@@ -123,8 +124,8 @@ export function DatePicker() {
     [isDateDisabled, selectedDates]
   );
 
-  // Handle mouse enter during drag
-  const handleMouseEnter = useCallback(
+  // Handle continue of interaction (both mouse move and touch move)
+  const handleInteractionMove = useCallback(
     (date: Date) => {
       if (!isDraggingRef.current || isDateDisabled(date)) return;
 
@@ -153,12 +154,13 @@ export function DatePicker() {
     [getDatesInRange, isDateDisabled]
   );
 
-  // Handle end of drag selection
-  const handleDragEnd = useCallback(() => {
+  // Handle end of interaction
+  const handleInteractionEnd = useCallback(() => {
     if (!isDraggingRef.current) return;
 
     // End drag
     isDraggingRef.current = false;
+    touchIdentifierRef.current = null;
 
     // Commit the changes to the store
     const newDatesSet = new Set(tempSelectedDatesRef.current);
@@ -183,30 +185,135 @@ export function DatePicker() {
     dragEndRef.current = null;
   }, [selectedDates, toggleDate]);
 
-  // Set up global mouse up handler
+  // Mouse event handlers
+  const handleMouseDown = useCallback(
+    (date: Date) => {
+      handleInteractionStart(date);
+    },
+    [handleInteractionStart]
+  );
+
+  const handleMouseEnter = useCallback(
+    (date: Date) => {
+      if (isDraggingRef.current) {
+        handleInteractionMove(date);
+      }
+    },
+    [handleInteractionMove]
+  );
+
+  // Touch event handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent, date: Date) => {
+      // Prevent default to avoid scrolling while selecting
+      e.preventDefault();
+
+      // Only start if we're not already tracking a touch
+      if (touchIdentifierRef.current === null) {
+        touchIdentifierRef.current = e.changedTouches[0].identifier;
+        handleInteractionStart(date);
+      }
+    },
+    [handleInteractionStart]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      // Prevent default to avoid scrolling while selecting
+      e.preventDefault();
+
+      if (!isDraggingRef.current) return;
+
+      // Find the touch point we're tracking
+      const touch = Array.from(e.changedTouches).find(
+        (t) => t.identifier === touchIdentifierRef.current
+      );
+
+      if (!touch) return;
+
+      // Get the element under the touch point
+      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+
+      // Find the date element that contains the touch point
+      const dateElement = element?.closest("[data-date]");
+      if (dateElement && dateElement.getAttribute("data-date")) {
+        const dateStr = dateElement.getAttribute("data-date");
+        if (dateStr) {
+          handleInteractionMove(new Date(dateStr));
+        }
+      }
+    },
+    [handleInteractionMove]
+  );
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      // Check if this touch end event is for our tracked touch
+      const isTrackedTouch = Array.from(e.changedTouches).some(
+        (t) => t.identifier === touchIdentifierRef.current
+      );
+
+      if (isTrackedTouch) {
+        handleInteractionEnd();
+      }
+    },
+    [handleInteractionEnd]
+  );
+
+  // Set up global mouse/touch up handlers
   useEffect(() => {
-    const handleMouseUp = () => {
-      handleDragEnd();
+    const handleGlobalMouseUp = () => {
+      handleInteractionEnd();
+    };
+
+    const handleGlobalTouchEnd = (e: TouchEvent) => {
+      // Check if this touch end event is for our tracked touch
+      const isTrackedTouch = Array.from(e.changedTouches).some(
+        (t) => t.identifier === touchIdentifierRef.current
+      );
+
+      if (isTrackedTouch) {
+        handleInteractionEnd();
+      }
+    };
+
+    // Handle touch cancel (e.g., when a system modal appears)
+    const handleGlobalTouchCancel = (e: TouchEvent) => {
+      // Check if this touch cancel event is for our tracked touch
+      const isTrackedTouch = Array.from(e.changedTouches).some(
+        (t) => t.identifier === touchIdentifierRef.current
+      );
+
+      if (isTrackedTouch) {
+        handleInteractionEnd();
+      }
     };
 
     if (typeof window !== "undefined") {
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("mouseup", handleGlobalMouseUp);
+      window.addEventListener("touchend", handleGlobalTouchEnd);
+      window.addEventListener("touchcancel", handleGlobalTouchCancel);
+
       return () => {
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("mouseup", handleGlobalMouseUp);
+        window.removeEventListener("touchend", handleGlobalTouchEnd);
+        window.removeEventListener("touchcancel", handleGlobalTouchCancel);
       };
     }
-  }, [handleDragEnd]);
+  }, [handleInteractionEnd]);
 
   // Custom day renderer with drag handling
   const renderDay = useCallback(
     (date: Date, day: string) => {
       const disabled = isDateDisabled(date);
       const selected = isDateSelected(date);
+      const dateStr = format(date, DATE_FORMAT);
 
       return (
         <div
+          data-date={dateStr}
           className={`
-            w-8 h-8 m-0.5 flex items-center justify-center select-none
+            w-8 h-8 m-0.5 flex items-center justify-center select-none md:w-10 md:h-10
             ${selected ? "bg-primary text-primary-foreground rounded-md" : ""}
             ${
               disabled
@@ -216,12 +323,23 @@ export function DatePicker() {
           `}
           onMouseDown={() => !disabled && handleMouseDown(date)}
           onMouseEnter={() => !disabled && handleMouseEnter(date)}
+          onTouchStart={(e) => !disabled && handleTouchStart(e, date)}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {day}
         </div>
       );
     },
-    [handleMouseDown, handleMouseEnter, isDateDisabled, isDateSelected]
+    [
+      handleMouseDown,
+      handleMouseEnter,
+      handleTouchStart,
+      handleTouchMove,
+      handleTouchEnd,
+      isDateDisabled,
+      isDateSelected,
+    ]
   );
 
   return (
@@ -234,6 +352,14 @@ export function DatePicker() {
           Day: ({ date }) => renderDay(date, format(date, "d")),
         }}
       />
+      <div className="text-sm text-gray-500">
+        <p className="font-medium mb-1">Instructions:</p>
+        <ul className="space-y-1 list-disc pl-5">
+          <li>Tap on a date to select it</li>
+          <li>Tap and drag across multiple dates to select a range</li>
+          <li>Tap on a selected date to deselect it</li>
+        </ul>
+      </div>
     </div>
   );
 }
