@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { AvailabilityResult } from "@/lib/types";
 import { getOverlappingSlots } from "@/utils/getOverlappingSlots";
 import { TZDate } from "@date-fns/tz";
+import { TimezoneSelect } from "@/components/TimezoneSelect";
 
 export default function ResultsPage() {
   const params = useParams();
@@ -300,47 +301,11 @@ export default function ResultsPage() {
             )}
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <Users className="mr-2 h-4 w-4" />
-                <span>{participants?.length || 0} participants</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-2"
-                >
-                  <Share2 className="h-4 w-4" />
-                  {showCopiedMessage ? "Copied!" : "Share Meeting"}
-                  {!showCopiedMessage && <Copy className="h-4 w-4" />}
-                </Button>
-                <Button onClick={() => router.push(`/meetings/${meetingId}`)}>
-                  Update Availability
-                </Button>
-              </div>
+            <div className="flex items-center ">
+              <Users className="mr-1 h-4 w-4" />
+              Participants: {participants?.length || 0}
             </div>
-
-            {name && (
-              <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md">
-                <p className="font-medium">You joined as: {name}</p>
-                <p className="text-sm mt-1">
-                  You can update your availability by joining again with the
-                  same name.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Participants list */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl">Participants</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="my-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {participants && participants.length > 0 ? (
                 participants.map((participant) => (
                   <div
@@ -364,6 +329,22 @@ export default function ResultsPage() {
                   <p className="mt-2">Share the link to invite others!</p>
                 </div>
               )}
+            </div>
+            <div className="mt-2 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-2"
+                >
+                  <Share2 className="h-4 w-4" />
+                  {showCopiedMessage ? "Copied!" : "Share Meeting"}
+                  {!showCopiedMessage && <Copy className="h-4 w-4" />}
+                </Button>
+                <Button onClick={() => router.push(`/meetings/${meetingId}`)}>
+                  Update Availability
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -394,6 +375,9 @@ export default function ResultsPage() {
                 )}
             </CardHeader>
             <CardContent>
+              <div className="mb-6">
+                <TimezoneSelect />
+              </div>
               <div className="space-y-3">
                 {filteredResults.map((result) => (
                   <div
