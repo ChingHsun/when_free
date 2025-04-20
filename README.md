@@ -1,7 +1,10 @@
 # When Free
-<img width="518" alt="Screenshot 2025-04-20 at 07 26 32" src="https://github.com/user-attachments/assets/d6f72667-29f1-4023-9513-298977e1539c" />
+
+<img width="521" alt="when" src="https://github.com/ChingHsun/when_free/raw/main/media/when.png" />
 
 A modern scheduling application that makes it easy to find the best meeting times across multiple participants.
+
+Article: [Vibe Coding: Possibility & Limitation](https://ching-hsun.vercel.app/techs/vibe-coding/)
 
 ## Features
 
@@ -25,7 +28,7 @@ A modern scheduling application that makes it easy to find the best meeting time
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Website
@@ -37,12 +40,13 @@ when-free.vercel.app
 1. **Create a Meeting**
    - Enter your name and meeting details
    - Select dates for your meeting
-   
 2. **Share the Link**
+
    - Copy the generated meeting link
    - Share with participants
 
 3. **Participant Sign-up**
+
    - Participants enter their name and join the meeting
    - They select time slots using the intuitive grid interface
 
