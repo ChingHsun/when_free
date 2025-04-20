@@ -1,4 +1,5 @@
 # When Free
+<img width="518" alt="Screenshot 2025-04-20 at 07 26 32" src="https://github.com/user-attachments/assets/d6f72667-29f1-4023-9513-298977e1539c" />
 
 A modern scheduling application that makes it easy to find the best meeting times across multiple participants.
 
